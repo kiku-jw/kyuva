@@ -10,7 +10,7 @@ class StoreManager: ObservableObject {
     // Product ID configured in App Store Connect
     static let proProductID = "dev.kikuai.kyuva.pro"
     
-    @Published var isPro: Bool = false
+    @Published var isPro: Bool = false // Production: check actual purchase status
     @Published var proProduct: Product?
     @Published var purchaseState: PurchaseState = .ready
     

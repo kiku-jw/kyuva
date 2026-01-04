@@ -81,8 +81,23 @@ class HotkeyManager {
             return nil
         }
         
-        // Note: Space and Cmd+R might interfere with other apps
-        // Consider making these configurable or using modifier combinations
+        // Control + Space (toggle pause) - 49
+        if keyCode == 49 && flags.contains(.maskControl) {
+            handlers[.togglePause]?()
+            return nil // Consume only when modifier is present
+        }
+        
+        // Cmd + R (reset) - 15
+        if keyCode == 15 && flags.contains(.maskCommand) {
+            handlers[.reset]?()
+            return nil
+        }
+        
+        // Cmd + Option + T (toggle overlay) - 17
+        if keyCode == 17 && flags.contains(.maskCommand) && flags.contains(.maskAlternate) {
+            handlers[.toggleOverlay]?()
+            return nil
+        }
         
         return Unmanaged.passUnretained(event)
     }

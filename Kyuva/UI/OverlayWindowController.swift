@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Combine
 
 /// Controller for the invisible overlay window
 /// Key feature: window is excluded from screen capture
@@ -9,22 +10,25 @@ class OverlayWindowController: NSWindowController {
     private var scriptManager: ScriptManager?
     private var hotkeyManager: HotkeyManager?
     private var isHovering = false
+    private var cancellables = Set<AnyCancellable>()
     
     convenience init() {
         // Get screen with notch (main screen on MacBooks with notch)
         let screen = NSScreen.main ?? NSScreen.screens.first!
         let screenFrame = screen.frame
-        let visibleFrame = screen.visibleFrame
+        _ = screen.visibleFrame
         
-        // Position at top center (notch area on MacBooks)
-        let width: CGFloat = 400
-        let height: CGFloat = 150
+        // Get overlay size from settings (defaults: 350x150)
+        let width = CGFloat(UserDefaults.standard.double(forKey: "overlayWidth") > 0 
+                           ? UserDefaults.standard.double(forKey: "overlayWidth") : 350)
+        let height = CGFloat(UserDefaults.standard.double(forKey: "overlayHeight") > 0 
+                            ? UserDefaults.standard.double(forKey: "overlayHeight") : 150)
         let x = screenFrame.midX - width / 2
-        let y = screenFrame.maxY - height - 30 // Below notch
+        let y = screenFrame.maxY - height // Flush with top menu bar
         
         let window = OverlayWindow(
             contentRect: NSRect(x: x, y: y, width: width, height: height),
-            styleMask: [.borderless],
+            styleMask: [.borderless, .resizable], // Native resize support
             backing: .buffered,
             defer: false
         )
@@ -55,6 +59,24 @@ class OverlayWindowController: NSWindowController {
         
         // Don't show in dock or app switcher
         window.isExcludedFromWindowsMenu = true
+        
+        // Set min/max size for resize
+        window.minSize = NSSize(width: 200, height: 80)
+        window.maxSize = NSSize(width: 600, height: 400)
+        
+        // Listen for resize to save size
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidResize),
+            name: NSWindow.didResizeNotification,
+            object: window
+        )
+    }
+    
+    @objc private func windowDidResize(_ notification: Notification) {
+        guard let window = window else { return }
+        UserDefaults.standard.set(Double(window.frame.width), forKey: "overlayWidth")
+        UserDefaults.standard.set(Double(window.frame.height), forKey: "overlayHeight")
     }
     
     private func setupContent() {
@@ -69,6 +91,12 @@ class OverlayWindowController: NSWindowController {
             },
             onDrag: { [weak self] translation in
                 self?.handleDrag(translation)
+            },
+            onResize: { [weak self] (widthDelta: CGFloat, heightDelta: CGFloat, isEnded: Bool) in
+                self?.handleResize(widthDelta: widthDelta, heightDelta: heightDelta)
+                if isEnded {
+                    self?.resetResizeTracking()
+                }
             }
         )
         
@@ -76,6 +104,102 @@ class OverlayWindowController: NSWindowController {
         
         // Connect scrollController to window for scroll wheel handling
         (window as? OverlayWindow)?.scrollController = scrollController
+        
+        // Handle end of script behavior
+        scrollController?.onEndReached = { [weak self] in
+            self?.scriptManager?.selectNextScript()
+            self?.scrollController?.reset() // Reset progress for the new script
+        }
+        
+        // Listen for settings changes to update overlay size in real-time
+        // Throttled to avoid freezes during rapid clicks/drags
+        NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+            .debounce(for: .milliseconds(100), scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.settingsDidChange()
+            }
+            .store(in: &cancellables)
+        
+        // Check initial scroll mode and enable voice if needed
+        updateVoiceMode()
+    }
+    
+    /// Update voice mode based on current scrollMode setting
+    private func updateVoiceMode() {
+        let scrollModeRaw = UserDefaults.standard.string(forKey: "scrollMode") ?? "auto"
+        if scrollModeRaw == "voiceFollow" {
+            print("[OverlayWindowController] Voice Follow mode active — enabling audio monitor")
+            scrollController?.enableVoiceMode()
+        } else {
+            scrollController?.disableVoiceMode()
+        }
+    }
+    
+    private var lastResizeSize: CGSize?
+    
+    private func handleResize(widthDelta: CGFloat, heightDelta: CGFloat) {
+        guard let window = window else { return }
+        
+        // Initialize tracking on first call
+        if lastResizeSize == nil {
+            lastResizeSize = window.frame.size
+        }
+        
+        let baseSize = lastResizeSize!
+        let newWidth = max(200, min(800, baseSize.width + widthDelta))
+        let newHeight = max(80, min(600, baseSize.height + heightDelta))
+        
+        let screen = window.screen ?? NSScreen.main ?? NSScreen.screens.first!
+        let screenFrame = screen.frame
+        
+        let currentFrame = window.frame
+        // Keep top edge flush with the monitor's top boundary
+        let newY = screenFrame.maxY - newHeight
+        
+        window.setFrame(
+            NSRect(x: currentFrame.origin.x, y: newY, width: newWidth, height: newHeight),
+            display: true
+        )
+        
+        // Save to UserDefaults for persistence
+        UserDefaults.standard.set(Double(newWidth), forKey: "overlayWidth")
+        UserDefaults.standard.set(Double(newHeight), forKey: "overlayHeight")
+    }
+    
+    func resetResizeTracking() {
+        lastResizeSize = nil
+    }
+    
+    @objc private func settingsDidChange() {
+        updateOverlaySize()
+        updateVoiceMode()
+    }
+    
+    /// Update overlay window size based on current settings
+    private func updateOverlaySize() {
+        guard let window = window else { return }
+        
+        let newWidth = CGFloat(UserDefaults.standard.double(forKey: "overlayWidth") > 0 
+                              ? UserDefaults.standard.double(forKey: "overlayWidth") : 350)
+        let newHeight = CGFloat(UserDefaults.standard.double(forKey: "overlayHeight") > 0 
+                               ? UserDefaults.standard.double(forKey: "overlayHeight") : 150)
+        
+        // Keep window centered horizontally on screen
+        let screen = window.screen ?? NSScreen.main ?? NSScreen.screens.first!
+        let screenFrame = screen.frame
+        
+        // Calculate new position (centered horizontally, stuck to top)
+        let newX = screenFrame.midX - newWidth / 2
+        let newY = screenFrame.maxY - newHeight // Always at the very top of monitor
+        
+        // Animate the resize
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            window.animator().setFrame(
+                NSRect(x: newX, y: newY, width: newWidth, height: newHeight),
+                display: true
+            )
+        }
     }
     
     private func handleDrag(_ translation: CGPoint) {
@@ -124,14 +248,37 @@ class OverlayWindowController: NSWindowController {
         hotkeyManager?.register(.reset) { [weak self] in
             self?.scrollController?.reset()
         }
+        
+        hotkeyManager?.register(.toggleOverlay) { [weak self] in
+            self?.toggleVisibility()
+        }
     }
+    
+    func toggleVisibility() {
+        guard let window = window else { return }
+        if window.isVisible {
+            window.orderOut(nil)
+        } else {
+            window.makeKeyAndOrderFront(nil)
+        }
+    }
+    
+    private var wasPlayingBeforeHover = false
     
     private func handleHover(_ isHovering: Bool) {
         self.isHovering = isHovering
+        
+        guard let sc = scrollController else { return }
+        
         if isHovering {
-            scrollController?.pause()
+            // Save state before hover-pause
+            wasPlayingBeforeHover = !sc.isPaused
+            sc.pause()
         } else {
-            scrollController?.resume()
+            // Only resume if it was playing before hover AND user didn't click pause
+            if wasPlayingBeforeHover && !sc.wasManuallyPaused {
+                sc.resume()
+            }
         }
     }
 }
@@ -157,14 +304,76 @@ struct OverlayContentView: View {
     @ObservedObject var scrollController: ScrollController
     var onHover: (Bool) -> Void
     var onDrag: ((CGPoint) -> Void)?
+    var onResize: ((CGFloat, CGFloat, Bool) -> Void)? // width delta, height delta, isEnded
+    
+    init(scriptManager: ScriptManager, scrollController: ScrollController, onHover: @escaping (Bool) -> Void, onDrag: ((CGPoint) -> Void)? = nil, onResize: ((CGFloat, CGFloat, Bool) -> Void)? = nil) {
+        self.scriptManager = scriptManager
+        self.scrollController = scrollController
+        self.onHover = onHover
+        self.onDrag = onDrag
+        self.onResize = onResize
+    }
     
     @AppStorage("overlayOpacity") private var opacity: Double = 0.85
     @AppStorage("fontSize") private var fontSize: Double = 18
+    @AppStorage("focusModeIntensity") private var focusModeIntensity: Int = 0
+    @AppStorage("textAlignment") private var textAlignment: Int = 1
+    @AppStorage("fontFamily") private var fontFamily: Int = 0
     
     @State private var showControls = false
     @State private var contentHeight: CGFloat = 0
     
     private let lineHeight: CGFloat = 28
+    
+    // Convert text alignment setting to SwiftUI alignment
+    private var alignment: Alignment {
+        switch textAlignment {
+        case 0: return .leading
+        case 2: return .trailing
+        default: return .center
+        }
+    }
+    
+    // Convert fontFamily setting to Font.Design
+    private var fontDesign: Font.Design {
+        switch fontFamily {
+        case 1: return .monospaced
+        case 2: return .serif
+        case 3: return .rounded
+        default: return .default
+        }
+    }
+    
+    // Compute edge opacity for focus mode
+    private var focusModeEdgeOpacity: Double {
+        switch focusModeIntensity {
+        case 1: return 0.6   // Subtle
+        case 2: return 0.35  // Medium
+        case 3: return 0.15  // Strong
+        default: return 1.0
+        }
+    }
+    
+    // Create gradient mask for focus mode (dims edges, bright center)
+    @ViewBuilder
+    private func focusModeGradient(height: CGFloat) -> some View {
+        if focusModeIntensity == 0 {
+            Rectangle().fill(.white)
+        } else {
+            LinearGradient(
+                stops: [
+                    .init(color: .white.opacity(focusModeEdgeOpacity), location: 0.0),
+                    .init(color: .white.opacity(min(1.0, focusModeEdgeOpacity * 1.5)), location: 0.25),
+                    .init(color: .white, location: 0.4),
+                    .init(color: .white, location: 0.6),
+                    .init(color: .white.opacity(min(1.0, focusModeEdgeOpacity * 1.5)), location: 0.75),
+                    .init(color: .white.opacity(focusModeEdgeOpacity), location: 1.0)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+    }
     
     var body: some View {
         GeometryReader { geometry in
@@ -174,80 +383,95 @@ struct OverlayContentView: View {
                     controlBar
                 }
                 
-                // Main content with TRUE smooth scroll (no ScrollView)
+                // Main content
                 ZStack {
                     // Background
-                    RoundedRectangle(cornerRadius: showControls ? 0 : 12)
-                        .fill(.black.opacity(opacity))
+                    UnevenRoundedRectangle(
+                        topLeadingRadius: 0,
+                        bottomLeadingRadius: 16,
+                        bottomTrailingRadius: 16,
+                        topTrailingRadius: 0
+                    )
+                    .fill(.black.opacity(opacity))
                     
-                    // Scrolling text container (clipped)
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(Array(scriptManager.lines.enumerated()), id: \.offset) { index, line in
-                            Text(line)
-                                .font(.system(size: fontSize, weight: .semibold))
-                                .foregroundColor(.white)
-                                .shadow(color: .black, radius: 1, x: 0, y: 1)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .frame(height: lineHeight)
-                                .padding(.horizontal, 4)
-                                .background(
-                                    // Flash highlight when clicked
-                                    RoundedRectangle(cornerRadius: 4)
-                                        .fill(scrollController.highlightedLine == index 
-                                              ? Color.yellow.opacity(0.5) 
-                                              : Color.clear)
-                                )
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    // Click to jump with highlight and auto-resume
-                                    scrollController.jumpToLine(index, autoResumeAfter: 1.0)
-                                }
-                                .animation(.easeOut(duration: 0.3), value: scrollController.highlightedLine)
-                        }
-                    }
-                    .padding(.horizontal, 8)
-                    .offset(y: -scrollController.scrollOffset + geometry.size.height / 2 - lineHeight / 2)
-                    .background(
-                        GeometryReader { contentGeo in
-                            Color.clear.onAppear {
-                                contentHeight = contentGeo.size.height
-                                scrollController.contentHeight = contentHeight
-                                scrollController.visibleHeight = geometry.size.height
+                    // Fixed-position container for the scrolling content
+                    // This allows the mask to stay centered in the window
+                    ZStack {
+                        VStack(alignment: alignment == .leading ? .leading : (alignment == .trailing ? .trailing : .center), spacing: 8) {
+                            ForEach(Array(scriptManager.lines.enumerated()), id: \.offset) { index, line in
+                                Text(line)
+                                    .font(.system(size: fontSize, weight: .semibold, design: fontDesign))
+                                    .foregroundColor(.white)
+                                    .shadow(color: .black, radius: 1, x: 0, y: 1)
+                                    .frame(maxWidth: .infinity, alignment: alignment)
+                                    .lineLimit(nil)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .padding(.vertical, 4)
+                                    .padding(.horizontal, 4)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(scrollController.highlightedLine == index 
+                                                  ? Color.yellow.opacity(0.4) 
+                                                  : Color.clear)
+                                    )
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        scrollController.jumpToLine(index, autoResumeAfter: 1.0)
+                                    }
                             }
                         }
-                    )
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
+                        .padding(.bottom, geometry.size.height)
+                        .offset(y: -scrollController.scrollOffset + geometry.size.height / 2)
+                        .animation(.linear(duration: 0.016), value: scrollController.scrollOffset)
+                        .background(
+                            GeometryReader { contentGeo in
+                                Color.clear
+                                    .onAppear {
+                                        updateContentHeight(contentGeo.size.height, visibleHeight: geometry.size.height)
+                                    }
+                                    .onChange(of: contentGeo.size.height) { newHeight in
+                                        updateContentHeight(newHeight, visibleHeight: geometry.size.height)
+                                    }
+                            }
+                        )
+                    }
+                    .contentShape(Rectangle())
+                    .clipped() // Ensure content doesn't bleed out during resize
+                    .mask(focusModeGradient(height: geometry.size.height))
                     
                     // Center line indicator
                     VStack {
                         Spacer()
                         Rectangle()
-                            .fill(.yellow.opacity(0.2))
-                            .frame(height: lineHeight + 4)
+                            .fill(.yellow.opacity(0.12))
+                            .frame(height: lineHeight + 12)
                         Spacer()
                     }
+                    .padding(.horizontal, 16)
+                    .allowsHitTesting(false)
                     
                     // Pause indicator
                     if scrollController.isPaused && !showControls {
                         VStack {
                             Spacer()
-                            HStack(spacing: 6) {
-                                Image(systemName: scrollController.scrollOffset == 0 ? "play.fill" : "pause.fill")
-                                Text(scrollController.scrollOffset == 0 ? "TAP ▶ TO START" : "PAUSED")
-                                    .font(.caption.bold())
+                            HStack(spacing: 8) {
+                                Image(systemName: scrollController.scrollOffset == 0 ? "play.circle.fill" : "pause.circle.fill")
+                                Text(scrollController.scrollOffset == 0 ? "READY" : "PAUSED")
+                                    .font(.system(.caption, design: .monospaced).bold())
                             }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(.black.opacity(0.85))
-                            .foregroundColor(.yellow)
-                            .cornerRadius(6)
-                            .padding(.bottom, 10)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(20)
+                            .foregroundColor(.white)
+                            .padding(.bottom, 20)
                         }
                     }
                 }
-                .clipped()
-                // Scroll wheel is now handled by OverlayWindow.scrollWheel()
             }
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(UnevenRoundedRectangle(topLeadingRadius: 0, bottomLeadingRadius: 16, bottomTrailingRadius: 16, topTrailingRadius: 0))
         }
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
@@ -255,6 +479,12 @@ struct OverlayContentView: View {
             }
             onHover(hovering)
         }
+    }
+    
+    private func updateContentHeight(_ height: CGFloat, visibleHeight: CGFloat) {
+        contentHeight = height
+        scrollController.contentHeight = height
+        scrollController.visibleHeight = visibleHeight
     }
     
     private var controlBar: some View {
@@ -277,23 +507,35 @@ struct OverlayContentView: View {
             // Play/Pause
             Button(action: { scrollController.togglePause() }) {
                 Image(systemName: scrollController.isPaused ? "play.fill" : "pause.fill")
-                    .font(.body)
+                    .font(.system(size: 14))
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             
-            // Speed controls
+            Divider()
+                .frame(height: 16)
+                .background(.white.opacity(0.3))
+            
+            // Speed controls - bigger tap targets
             Button(action: { scrollController.adjustSpeed(delta: -5) }) {
-                Image(systemName: "minus")
+                Image(systemName: "minus.circle.fill")
+                    .font(.system(size: 16))
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             
             Text("\(Int(scrollController.scrollSpeed))")
-                .font(.caption.monospacedDigit())
-                .foregroundColor(.white.opacity(0.7))
-                .frame(width: 25)
+                .font(.system(size: 12, weight: .medium, design: .monospaced))
+                .foregroundColor(.white.opacity(0.8))
+                .frame(width: 30)
             
             Button(action: { scrollController.adjustSpeed(delta: 5) }) {
-                Image(systemName: "plus")
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 16))
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             
@@ -302,12 +544,15 @@ struct OverlayContentView: View {
             // Reset
             Button(action: { scrollController.reset() }) {
                 Image(systemName: "arrow.counterclockwise")
+                    .font(.system(size: 12))
+                    .frame(width: 24, height: 24)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(.black.opacity(0.6))
+        .padding(.vertical, 8)
+        .background(.black.opacity(0.7))
         .foregroundColor(.white)
     }
 }

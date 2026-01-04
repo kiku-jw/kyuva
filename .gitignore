@@ -24,3 +24,5 @@ xcuserdata/
 Packages/
 .package.resolved
 Package.resolved
+release/
+build/

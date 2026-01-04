@@ -38,12 +38,17 @@ class LocalStore {
         }
     }
     
+    private let saveQueue = DispatchQueue(label: "com.kyuva.storage", qos: .background)
+    
     func saveScripts(_ scripts: [Script]) {
-        do {
-            let data = try JSONEncoder().encode(scripts)
-            try data.write(to: scriptsURL)
-        } catch {
-            print("Failed to save scripts: \(error)")
+        let scriptsCopy = scripts // Capture copy for thread safety
+        saveQueue.async {
+            do {
+                let data = try JSONEncoder().encode(scriptsCopy)
+                try data.write(to: self.scriptsURL)
+            } catch {
+                print("Failed to save scripts: \(error)")
+            }
         }
     }
 }

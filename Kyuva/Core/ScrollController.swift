@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftUI
 
 /// Controls smooth continuous scroll with pixel-perfect animation
 class ScrollController: ObservableObject {
@@ -8,10 +9,16 @@ class ScrollController: ObservableObject {
     @Published var scrollOffset: CGFloat = 0
     
     @Published var isPaused: Bool = true // Start paused
-    @Published var scrollSpeed: Double = 30 // pixels per second
+    @Published var scrollSpeed: Double = 10 // pixels per second (default 10 for ultra-smooth reading)
     
     /// Highlighted line index (for flash animation on click)
     @Published var highlightedLine: Int? = nil
+    
+    /// Track if user manually paused (vs hover-pause)
+    var wasManuallyPaused: Bool = false
+    
+    /// Voice mode: scroll only when speaking
+    @Published var voiceModeEnabled: Bool = false
     
     /// Total content height (set by view)
     var contentHeight: CGFloat = 1000
@@ -22,31 +29,71 @@ class ScrollController: ObservableObject {
     /// Line height for calculations
     let lineHeight: CGFloat = 28
     
-    private var displayLink: Timer?
-    private var lastUpdateTime: Date = Date()
     private var autoResumeWorkItem: DispatchWorkItem?
     
+    /// Audio monitor for voice mode
+    var audioMonitor: AudioLevelMonitor?
+    private var cancellables = Set<AnyCancellable>()
+    private var scrollTimer: Timer?
+    private var lastUpdateTime: Date = Date()
+    
     init() {
-        startDisplayLink()
+        startScrollTimer()
     }
     
     deinit {
-        displayLink?.invalidate()
+        scrollTimer?.invalidate()
         autoResumeWorkItem?.cancel()
+        audioMonitor?.stop()
     }
     
-    // MARK: - Display Link (60fps)
+    // MARK: - Voice Mode
     
-    private func startDisplayLink() {
-        displayLink?.invalidate()
+    func enableVoiceMode() {
+        if audioMonitor == nil {
+            audioMonitor = AudioLevelMonitor()
+        }
+        
+        // Subscribe to isSpeaking changes
+        audioMonitor?.$isSpeaking
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isSpeaking in
+                guard let self = self, self.voiceModeEnabled else { return }
+                
+                // Respect manual pause — ignore voice input until user manually resumes
+                if self.wasManuallyPaused { return }
+                
+                // In voice mode: scroll when speaking, pause when silent
+                self.isPaused = !isSpeaking
+            }
+            .store(in: &cancellables)
+        
+        voiceModeEnabled = true
+        audioMonitor?.start()
+    }
+    
+    func disableVoiceMode() {
+        voiceModeEnabled = false
+        audioMonitor?.stop()
+        cancellables.removeAll()
+    }
+    
+    // MARK: - Scroll Timer (High frequency for smooth updates)
+    
+    private func startScrollTimer() {
+        scrollTimer?.invalidate()
         lastUpdateTime = Date()
         
-        displayLink = Timer.scheduledTimer(withTimeInterval: 1.0/60.0, repeats: true) { [weak self] _ in
+        // 60fps timer - SwiftUI will interpolate smoothly
+        scrollTimer = Timer.scheduledTimer(withTimeInterval: 1.0/60.0, repeats: true) { [weak self] _ in
             self?.tick()
         }
-        RunLoop.current.add(displayLink!, forMode: .common)
+        RunLoop.current.add(scrollTimer!, forMode: .common)
     }
     
+    @AppStorage("endBehavior") private var endBehavior: Int = 0
+    var onEndReached: (() -> Void)?
+
     private func tick() {
         guard !isPaused else {
             lastUpdateTime = Date()
@@ -63,9 +110,17 @@ class ScrollController: ObservableObject {
         
         // Clamp to content bounds
         let maxOffset = max(0, contentHeight - visibleHeight)
-        if scrollOffset > maxOffset {
-            scrollOffset = maxOffset
-            isPaused = true // Auto-pause at end
+        if scrollOffset >= maxOffset {
+            switch endBehavior {
+            case 1: // Start Over
+                scrollOffset = 0
+            case 2: // Play Next
+                isPaused = true
+                onEndReached?()
+            default: // Do Nothing (Stay at end)
+                scrollOffset = maxOffset
+                isPaused = true
+            }
         }
         if scrollOffset < 0 {
             scrollOffset = 0
@@ -79,8 +134,15 @@ class ScrollController: ObservableObject {
         autoResumeWorkItem?.cancel()
     }
     
+    /// Pause triggered by user action (button/hotkey)
+    func manualPause() {
+        wasManuallyPaused = true
+        pause()
+    }
+    
     func resume() {
         isPaused = false
+        wasManuallyPaused = false
         lastUpdateTime = Date()
     }
     
@@ -88,7 +150,7 @@ class ScrollController: ObservableObject {
         if isPaused {
             resume()
         } else {
-            pause()
+            manualPause()
         }
     }
     

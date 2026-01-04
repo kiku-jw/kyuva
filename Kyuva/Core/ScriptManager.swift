@@ -65,14 +65,46 @@ class ScriptManager: ObservableObject {
     func updateScriptName(_ id: UUID, name: String) {
         guard let index = scripts.firstIndex(where: { $0.id == id }) else { return }
         scripts[index].name = name
-        saveScripts()
+        debouncedSave()
     }
     
+    /// Update content immediately (for live preview) but debounce file save
     func updateScriptContent(_ id: UUID, content: String) {
         guard let index = scripts.firstIndex(where: { $0.id == id }) else { return }
         scripts[index].content = content
+        // Reindex is cheap, do it immediately for live preview
         scripts[index].reindex()
-        saveScripts()
+        // Debounce the expensive disk save
+        debouncedSave()
+    }
+    
+    /// Trigger reindex for a script (immediate)
+    func reindexScript(_ id: UUID) {
+        guard let index = scripts.firstIndex(where: { $0.id == id }) else { return }
+        scripts[index].reindex()
+    }
+    
+    private var saveWorkItem: DispatchWorkItem?
+    
+    /// Call from UI to trigger debounced save
+    func debounceSaveFromUI() {
+        saveWorkItem?.cancel()
+        saveWorkItem = DispatchWorkItem { [weak self] in
+            self?.saveScripts()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: saveWorkItem!)
+    }
+    
+    private func debouncedSave() {
+        debounceSaveFromUI()
+    }
+    
+    func selectNextScript() {
+        guard let currentId = selectedScriptId,
+              let currentIndex = scripts.firstIndex(where: { $0.id == currentId }) else { return }
+        
+        let nextIndex = (currentIndex + 1) % scripts.count
+        selectedScriptId = scripts[nextIndex].id
     }
     
     // MARK: - Import/Export
