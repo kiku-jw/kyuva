@@ -636,7 +636,3 @@ enum ScrollMode: String, CaseIterable {
     case manual
     case voiceFollow
 }
-
-#Preview {
-    SettingsView()
-}

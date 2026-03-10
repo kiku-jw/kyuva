@@ -133,7 +133,3 @@ struct FeatureRow: View {
         }
     }
 }
-
-#Preview {
-    ProUpgradeView()
-}

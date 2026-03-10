@@ -5,110 +5,77 @@
 <h1 align="center">Kyuva</h1>
 
 <p align="center">
-  <strong>Invisible camera-side prompter that follows your voice</strong>
+  <strong>Archived macOS teleprompter experiment with a capture-safe camera-side overlay</strong>
 </p>
 
 <p align="center">
-  <em>Camera cue that never leaks to screen share</em>
+  <em>Screen-share-safe prompting near the laptop camera, with local voice-follow scrolling</em>
 </p>
 
-<p align="center">
-  <a href="#features">Features</a> •
-  <a href="#how-it-works">How It Works</a> •
-  <a href="#installation">Installation</a> •
-  <a href="#usage">Usage</a> •
-  <a href="#privacy">Privacy</a>
-</p>
+## Project Status
 
----
+Kyuva is archived and is no longer under active development.
 
-## ✨ Features
+- No App Store release is planned.
+- The repository stays public as an open-source reference and portfolio project.
+- The main idea worth reusing is the camera-side overlay that stays hidden from screen sharing.
+- Support, issue triage, and new feature work are not guaranteed.
 
-- 🔒 **Invisible on Screen Share** — Overlay excluded from Zoom, Meet, Teams, OBS
-- 🎤 **Voice-Follow Scrolling** — Text moves as you speak (on-device, no cloud)
-- ⌨️ **Global Hotkeys** — `Shift+←/→` to adjust speed, hover to pause
-- 📝 **Script Library** — Save multiple scripts, import/export txt/md
-- 🚀 **Lightweight** — Native Swift, Apple Silicon optimized
-- 🔐 **100% Offline** — No account, no login, no tracking
+## Why This Repository Still Exists
 
-## 🎬 How It Works
+Kyuva is still a useful reference for a narrow macOS presentation workflow:
 
-1. **Position** — Kyuva sits near your camera (notch on MacBooks)
-2. **Read** — Text scrolls automatically or follows your voice
-3. **Stay Hidden** — Overlay is invisible when you share your screen
+- a lightweight overlay positioned near the MacBook camera or notch area
+- capture exclusion for screen sharing and recording workflows
+- local-only voice-follow scrolling without a cloud service
+- a small native Swift codebase that is easy to inspect and fork
 
-```
-┌─────────────────────────────────┐
-│  🔴 🟡 🟢      [Kyuva]          │  ← Only you see this
-├─────────────────────────────────┤
-│                                 │
-│   Your audience sees           │
-│   just your video feed         │
-│   without any overlay          │
-│                                 │
-└─────────────────────────────────┘
-```
+The broader teleprompter market is already better served by more polished products, so this repository is kept as a clean public artifact rather than an actively competing product.
 
-## 📥 Installation
+## Feature Snapshot
 
-### Mac App Store
-Coming soon — one-time purchase, lifetime updates.
+- Screen-share-safe overlay for Zoom, Meet, Teams, OBS, and similar tools
+- Voice-follow scrolling using on-device speech APIs
+- Global hotkeys for scroll speed adjustments
+- Local script storage with import and export support
+- No account, no analytics, and no required network service
 
-### Build from Source
+## Build From Source
 
 ```bash
-# Clone
 git clone https://github.com/KikuAI-Lab/kyuva.git
 cd kyuva
-
-# Open in Xcode
 open Kyuva.xcodeproj
+```
 
-# Or build with Swift
+You can also try:
+
+```bash
 swift build
 ```
 
-**Requirements:**
+Requirements:
+
 - macOS 13.0+
-- Apple Silicon or Intel
+- Xcode 15+ or a compatible Swift 5.9 toolchain
 
-## 🎮 Usage
+This is an archived prototype, so expect rough edges and unfinished product paths.
 
-| Action | Shortcut |
-|--------|----------|
-| Speed Up | `Shift + →` |
-| Speed Down | `Shift + ←` |
-| Pause | Hover over overlay |
-| Toggle Voice-Follow | In Settings |
+## Privacy
 
-## 🔒 Privacy
+Kyuva keeps its core behavior local:
 
-**Kyuva respects your privacy:**
+- speech processing happens on-device
+- scripts are stored on your Mac
+- no account is required
+- no analytics or tracking are built in
 
-- ✅ All speech recognition happens **on-device**
-- ✅ Scripts are stored **locally only**
-- ✅ **No data** is sent to any server
-- ✅ **No account** required
-- ✅ **No analytics** or tracking
+More detail is available in [PRIVACY.md](PRIVACY.md).
 
-The microphone is used only for voice-follow scrolling and can be disabled.
+## License
 
-## 🏗 Architecture
+This repository is released under [AGPL-3.0](LICENSE).
 
-```
-Kyuva/
-├── App/           # Entry point, menu bar
-├── UI/            # Overlay, Settings
-├── Core/          # Script, Scroll, Voice, Hotkeys
-└── Platform/      # macOS APIs (capture exclusion)
-```
+## Forking
 
-## 📄 License
-
-Proprietary software. © 2026 KikuAI.
-
----
-
-<p align="center">
-  Made with 💜 for presenters, content creators, and anyone who wants to sound confident on camera.
-</p>
+Forks are welcome under the project license. If someone wants to revive Kyuva, the most promising direction is still the narrow wedge it explored well: camera-side, screen-share-safe prompting on macOS.
