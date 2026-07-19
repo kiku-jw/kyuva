@@ -27,7 +27,7 @@ Kyuva is an open-source macOS teleprompter focused on keeping the script near th
 ## Build From Source
 
 ```bash
-git clone https://github.com/KikuAI-Lab/kyuva.git
+git clone https://github.com/kiku-jw/kyuva.git
 cd kyuva
 open Kyuva.xcodeproj
 ```
