@@ -1,11 +1,11 @@
 # Privacy Policy for Kyuva
 
 **Effective Date:** January 5, 2026  
-**Last Updated:** March 10, 2026
+**Last Updated:** July 20, 2026
 
 ## Overview
 
-Kyuva ("the App") is a macOS teleprompter project developed by KikuAI. This repository is archived, but the source remains public. This policy explains how the application handles data.
+Kyuva ("the App") is a macOS teleprompter project developed by KikuAI. Its source is public. This policy explains how the application handles data.
 
 ## Data Collection
 
@@ -57,10 +57,10 @@ If this policy changes, updates will be made in this repository.
 
 ## Contact
 
-This project is archived, so active support is not guaranteed.
+Project questions can be submitted through the GitHub repository.
 
 Repository:
-- **GitHub:** https://github.com/KikuAI-Lab/kyuva
+- **GitHub:** https://github.com/kiku-jw/kyuva
 
 ---
 
