@@ -16,6 +16,8 @@
 
 Kyuva is an open-source macOS teleprompter focused on keeping the script near the camera while staying out of screen shares and recordings.
 
+**[Download the latest release](https://github.com/kiku-jw/kyuva/releases/latest)**
+
 ## Feature Snapshot
 
 - Screen-share-safe overlay for Zoom, Meet, Teams, OBS, and similar tools
@@ -55,6 +57,12 @@ Kyuva keeps its core behavior local:
 - no analytics or tracking are built in
 
 More detail is available in [PRIVACY.md](PRIVACY.md).
+
+## Follow the work
+
+Project notes and new tools: [Telegram](https://t.me/kiku_ai) ·
+[LinkedIn](https://www.linkedin.com/in/kiku-jw/) ·
+[KikuAI](https://kikuai.dev/)
 
 ## License
 
