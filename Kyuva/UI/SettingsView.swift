@@ -391,17 +391,6 @@ struct SettingsView: View {
                 .padding(.top, 12)
             }
 
-            Button {
-                showPrompt()
-            } label: {
-                Label("Open Camera-Side Prompt", systemImage: "play.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-            .tint(studioAccent)
-            .foregroundStyle(.black)
-            .disabled(scriptManager.selectedScript?.lines.isEmpty != false)
         }
     }
 
@@ -492,10 +481,6 @@ struct SettingsView: View {
 
             if ProEntitlementStore.commerceEnabled {
                 proControls
-            } else {
-                Text("Open preview · no purchase available")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
             if let proMessage {
@@ -679,7 +664,7 @@ struct SettingsView: View {
     private var proAccessLabel: String {
         switch proStore.accessState {
         case .openPreview:
-            return "Voice Follow Preview"
+            return "Voice Follow"
         case .purchased:
             return "Lifetime Pro Unlocked"
         case .trial(let daysRemaining):
@@ -700,7 +685,7 @@ struct SettingsView: View {
         if ProEntitlementStore.commerceEnabled {
             return "Voice Follow is the first Pro feature. Buy once to unlock it on Mac and iPhone, or try it free for seven days."
         }
-        return "On-device Voice Follow remains available to everyone while commerce is inactive."
+        return "Kyuva follows your spoken position using on-device speech recognition. Your script and speech stay on this Mac."
     }
 
     private func message(for outcome: ProPurchaseOutcome) -> String {

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 2,
+  "appName": "Kyuva",
+  "themeId": "kyuva-studio",
+  "connectedCanvas": false,
+  "locales": ["en"],
+  "locale": "en",
+  "device": "iphone",
+  "orientation": "portrait",
+  "appIcon": "/kyuva-icon.png",
+  "slidesByDevice": {
+    "iphone": [
+      {
+        "id": "kyuva-01-prompt",
+        "layout": "hero",
+        "label": { "en": "QUIET TELEPROMPTER" },
+        "headline": { "en": "Stay close\nto the lens." },
+        "screenshot": "/screenshots/apple/iphone/en/prompt.jpg"
+      },
+      {
+        "id": "kyuva-02-private",
+        "layout": "device-bottom",
+        "label": { "en": "PRIVATE BY DESIGN" },
+        "headline": { "en": "No account.\nNo cloud." },
+        "screenshot": "/screenshots/apple/iphone/en/library.jpg",
+        "inverted": true
+      },
+      {
+        "id": "kyuva-03-voice",
+        "layout": "device-bottom",
+        "label": { "en": "VOICE FOLLOW" },
+        "headline": { "en": "Speak naturally.\nKyuva keeps up." },
+        "screenshot": "/screenshots/apple/iphone/en/settings.jpg"
+      },
+      {
+        "id": "kyuva-04-write",
+        "layout": "device-top",
+        "label": { "en": "FAST SCRIPTING" },
+        "headline": { "en": "Write. Rehearse.\nPresent." },
+        "screenshot": "/screenshots/apple/iphone/en/editor.jpg",
+        "inverted": true
+      },
+      {
+        "id": "kyuva-05-control",
+        "layout": "two-devices",
+        "label": { "en": "FINE CONTROL" },
+        "headline": { "en": "Your pace.\nYour way." },
+        "screenshot": "/screenshots/apple/iphone/en/prompt.jpg",
+        "screenshotSecondary": "/screenshots/apple/iphone/en/settings.jpg"
+      }
+    ],
+    "ipad": [],
+    "android": [],
+    "android-7": [],
+    "android-10": [],
+    "feature-graphic": []
+  }
+}

@@ -315,6 +315,24 @@ final class ScrollControllerTests: XCTestCase {
         XCTAssertEqual(controller.scrollOffset, 250)
     }
 
+    func testContentMetricChangesPreservePromptProgress() {
+        let suiteName = "KyuvaTests.ScrollController.Geometry.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let controller = ScrollController(startTimer: false, userDefaults: defaults)
+        controller.updateContentMetrics(contentHeight: 1_150, visibleHeight: 150, wordCount: 200)
+        controller.goToOffset(250)
+
+        controller.updateContentMetrics(contentHeight: 750, visibleHeight: 150, wordCount: 200)
+        XCTAssertEqual(controller.progress, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(controller.scrollOffset, 150, accuracy: 0.0001)
+
+        controller.updateContentMetrics(contentHeight: 1_650, visibleHeight: 150, wordCount: 200)
+        XCTAssertEqual(controller.progress, 0.25, accuracy: 0.0001)
+        XCTAssertEqual(controller.scrollOffset, 375, accuracy: 0.0001)
+    }
+
     func testTargetDurationDerivesSpeedAndFasterControlShortensDuration() {
         let suiteName = "KyuvaTests.ScrollController.Duration.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!

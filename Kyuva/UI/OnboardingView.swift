@@ -1,5 +1,7 @@
 import SwiftUI
 
+private let onboardingAccent = Color(red: 0.79, green: 0.81, blue: 1.0)
+
 /// Onboarding wizard shown on first launch
 struct OnboardingView: View {
     @Binding var isPresented: Bool
@@ -50,7 +52,7 @@ struct OnboardingView: View {
                 HStack(spacing: 8) {
                     ForEach(0..<totalPages, id: \.self) { index in
                         Circle()
-                            .fill(index == currentPage ? Color.accentColor : Color.gray.opacity(0.3))
+                            .fill(index == currentPage ? onboardingAccent : Color.gray.opacity(0.3))
                             .frame(width: 8, height: 8)
                     }
                 }
@@ -62,30 +64,34 @@ struct OnboardingView: View {
                 
                 if currentPage < totalPages - 1 {
                     Button(action: { currentPage += 1 }) {
-                        HStack {
+                        HStack(spacing: 6) {
                             Text("Next")
                             Image(systemName: "chevron.right")
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                        .background(Color.cyan)
-                        .foregroundColor(.black)
-                        .cornerRadius(8)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 9)
+                            .background(onboardingAccent, in: Capsule())
+                            .overlay {
+                                Capsule().stroke(.white.opacity(0.22))
+                            }
                     }
                     .buttonStyle(.plain)
+                    .foregroundStyle(.black)
                 } else {
                     Button(action: { completeOnboarding() }) {
-                        HStack {
+                        HStack(spacing: 6) {
                             Text("Get Started")
                             Image(systemName: "arrow.right")
                         }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 8)
-                        .background(Color.cyan)
-                        .foregroundColor(.black)
-                        .cornerRadius(8)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 9)
+                            .background(onboardingAccent, in: Capsule())
+                            .overlay {
+                                Capsule().stroke(.white.opacity(0.22))
+                            }
                     }
                     .buttonStyle(.plain)
+                    .foregroundStyle(.black)
                 }
             }
             .padding(.horizontal, 30)
@@ -108,17 +114,12 @@ struct WelcomePage: View {
         VStack(spacing: 20) {
             Spacer()
             
-            // Icon
-            Image(systemName: "text.alignleft")
-                .font(.system(size: 60))
-                .foregroundColor(.accentColor)
+            Image(nsImage: NSApplication.shared.applicationIconImage)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 112, height: 112)
                 .accessibilityHidden(true)
-                .padding()
-                .background(
-                    Circle()
-                        .fill(Color.accentColor.opacity(0.1))
-                        .frame(width: 120, height: 120)
-                )
+                .shadow(color: onboardingAccent.opacity(0.22), radius: 20, y: 8)
             
             Text("Welcome to Kyuva")
                 .font(.largeTitle.bold())
@@ -140,10 +141,10 @@ struct WelcomePage: View {
             HStack(spacing: 12) {
                 Image(systemName: "arrow.up")
                     .font(.title2)
-                    .foregroundColor(.accentColor)
+                    .foregroundColor(onboardingAccent)
                     .accessibilityHidden(true)
                     .padding(12)
-                    .background(Circle().fill(Color.accentColor.opacity(0.15)))
+                    .background(Circle().fill(onboardingAccent.opacity(0.15)))
                 
                 VStack(alignment: .leading) {
                     Text("Look up at your screen")
@@ -167,15 +168,14 @@ struct WelcomePage: View {
 struct FeaturesPage: View {
     var body: some View {
         VStack(spacing: 12) {
-            // Icon
-            Image(systemName: "eye")
+            Image(systemName: "viewfinder.circle")
                 .font(.system(size: 40))
-                .foregroundColor(.green)
+                .foregroundColor(onboardingAccent)
                 .accessibilityHidden(true)
                 .padding(10)
                 .background(
                     Circle()
-                        .fill(Color.green.opacity(0.15))
+                        .fill(onboardingAccent.opacity(0.15))
                         .frame(width: 70, height: 70)
                 )
             
@@ -189,31 +189,31 @@ struct FeaturesPage: View {
             // Feature grid - more compact
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 FeatureCard(
-                    icon: "person.fill",
-                    iconColor: .blue,
+                    icon: "eye",
+                    iconColor: onboardingAccent,
                     title: "Natural Eye Contact",
                     description: "Text appears next to your camera"
                 )
                 
                 FeatureCard(
+                    icon: "lock.shield",
+                    iconColor: onboardingAccent,
+                    title: "Local by Default",
+                    description: "No account, analytics, or required cloud"
+                )
+                
+                FeatureCard(
+                    icon: "speedometer",
+                    iconColor: onboardingAccent,
+                    title: "Flexible Pacing",
+                    description: "Use fixed speed, WPM, or a target duration"
+                )
+                
+                FeatureCard(
                     icon: "rectangle.on.rectangle",
                     iconColor: .orange,
-                    title: "Capture Visibility",
-                    description: "May appear in screen shares or recordings; verify the preview or share a single app window that omits Kyuva"
-                )
-                
-                FeatureCard(
-                    icon: "text.alignleft",
-                    iconColor: .purple,
-                    title: "Auto-Scrolling",
-                    description: "Focus on speaking, not scrolling"
-                )
-                
-                FeatureCard(
-                    icon: "macwindow.on.rectangle",
-                    iconColor: .cyan,
-                    title: "Always on Top",
-                    description: "Visible above all windows"
+                    title: "Honest Capture",
+                    description: "The prompt may be recorded, so check your preview"
                 )
             }
             .padding(.horizontal, 20)
@@ -257,15 +257,14 @@ struct GettingStartedPage: View {
         VStack(spacing: 20) {
             Spacer()
             
-            // Icon
-            Image(systemName: "gearshape.fill")
+            Image(systemName: "play.rectangle.on.rectangle")
                 .font(.system(size: 50))
-                .foregroundColor(.blue)
+                .foregroundColor(onboardingAccent)
                 .accessibilityHidden(true)
                 .padding()
                 .background(
                     Circle()
-                        .fill(Color.blue.opacity(0.15))
+                        .fill(onboardingAccent.opacity(0.15))
                         .frame(width: 100, height: 100)
                 )
             
@@ -277,10 +276,10 @@ struct GettingStartedPage: View {
                 .foregroundColor(.secondary)
             
             VStack(alignment: .leading, spacing: 16) {
-                StepRow(number: 1, title: "Add your notes", description: "Open Settings from the menu bar to write or import a script")
-                StepRow(number: 2, title: "Place the overlay", description: "Drag or resize the camera-side overlay so it fits your setup")
-                StepRow(number: 3, title: "Control the scroll", description: "Use the overlay controls, scroll manually, or use the fixed global shortcuts")
-                StepRow(number: 4, title: "Verify your share", description: "Check the meeting preview, then use Hide Teleprompter from the menu bar when finished")
+                StepRow(number: 1, title: "Choose a script", description: "Create, import, or find it in the local library")
+                StepRow(number: 2, title: "Write and tune", description: "Edit in the center and choose pace, type, and directions on the right")
+                StepRow(number: 3, title: "Open the prompt", description: "Place it near your camera, then play or pause from its controls")
+                StepRow(number: 4, title: "Verify your share", description: "Check your meeting or recording preview before you present")
             }
             .padding(.horizontal, 50)
             
@@ -301,7 +300,7 @@ struct StepRow: View {
                 .font(.headline)
                 .foregroundColor(.black)
                 .frame(width: 28, height: 28)
-                .background(Circle().fill(Color.cyan))
+                .background(Circle().fill(onboardingAccent))
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)

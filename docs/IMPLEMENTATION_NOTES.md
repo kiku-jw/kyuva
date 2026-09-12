@@ -2,6 +2,16 @@
 
 > Live decision record for non-obvious product and implementation tradeoffs. Issue #2 owns delivery state; code and tests own behavior. Update this file only when a decision or residual risk changes.
 
+## 2026-09-12 — Acceptance polish across Mac, iPhone, and Watch
+
+### Decision
+
+Preserve normalized prompt progress when visible geometry changes, including iPhone rotation and Mac overlay resizing. Present Voice Follow as an included on-device feature while commerce remains disabled, remove the redundant third Mac prompt action, and use Kyuva's lavender accent instead of cyan on Watch and in first-run onboarding. Onboarding now teaches the library, editor, prompt, and capture-preview flow that the redesigned app actually uses. Reserve Mac `1.1 (7)` and iPhone/Watch `1.0 (5)` for this acceptance candidate so it cannot be confused with Apple's processed Mac build 6 or the prior mobile build 4.
+
+### Rationale
+
+Device smoke testing exposed a large apparent jump backward when a running iPhone prompt rotated because the controller kept a pixel offset while its scrollable range changed. The other changes remove internal release language and visual drift from the public free experience without adding a new flow, dependency, or entitlement.
+
 ## 2026-09-01 — Readability parity before feature growth
 
 ### Decision

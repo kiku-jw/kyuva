@@ -11,7 +11,7 @@
 - Bundle ID: `com.kikuai.kyuva`
 - SKU: `kyuva-macos-1`
 - Public version/build: `1.0 (4)`
-- Prepared update/build: `1.1 (6)`
+- Acceptance candidate/build: `1.1 (7)`
 - Publisher: `Mykyta Dudnichenko`
 - Primary language: English (U.S.)
 - Platform: macOS 13 or later, Apple silicon and Intel
@@ -79,11 +79,45 @@ The prompter is a normal macOS window and may appear in screen shares or recordi
 
 ### Keywords
 
-`autocue,webcam,meeting,presenter,notes,scroll,recording,video,mirror,offline,overlay,speech`
+`autocue,webcam,meeting,presenter,notes,scroll,mirror,offline,overlay,speech,wpm,cue,public speaking`
 
 ### Version 1.1 release notes
 
-`Adds optional on-device Voice Follow for supported languages, an accessible menu command and shortcut, and clearer in-app support. Kyuva keeps scripts local and refuses cloud-only speech recognition.`
+`Adds a searchable script studio, a calmer camera-side prompt, flexible Fixed/WPM/Duration pacing, and optional on-device Voice Follow for supported languages. Kyuva keeps scripts local and refuses cloud-only speech recognition.`
+
+## Prepared iPhone and Apple Watch product page — not uploaded
+
+### Subtitle
+
+`Speak naturally, stay private`
+
+### Promotional text
+
+`Write, present full-screen, follow your voice on device, and control the pace from Apple Watch—without accounts, ads, analytics, or cloud uploads.`
+
+### Description
+
+Kyuva is a free, local-first teleprompter for iPhone and Apple Watch. It gives your words a calm full-screen reading surface so you can keep your attention on the lens and your audience.
+
+Move from script to prompt in seconds:
+
+• create, search, import, edit, and share scripts;
+• choose fixed speed, words per minute, or a target finish time;
+• tune typeface, alignment, text size, mirroring, and stage directions;
+• follow progress and remaining time without crowding the script;
+• pause, reset, or change pace from a paired Apple Watch.
+
+When your iPhone supports on-device recognition for the script language, optional Voice Follow advances from your spoken position. Kyuva refuses cloud-only speech recognition instead of uploading audio.
+
+There is no account, subscription, advertising, analytics, or required cloud service. Your scripts and settings stay on your device.
+
+### Keywords
+
+`autocue,webcam,meeting,presenter,notes,scroll,mirror,offline,speech,wpm,cue,remote,public speaking`
+
+### Version 1.0 release notes
+
+`First iPhone release with local script editing, full-screen prompting, Fixed/WPM/Duration pacing, on-device Voice Follow for supported languages, and paired Apple Watch controls.`
 
 ## Privacy and compliance
 
@@ -109,7 +143,7 @@ Use the account owner's current App Review contact details in App Store Connect.
 
 ### Notes
 
-`Build 6 keeps the unfinished local iPhone remote removed and contains no Mac network entitlement or listener. No account or sign-in is required. On first launch, click Skip or complete the three-page Welcome Tour; the teleprompter then appears near the top-center camera area. Use the text-bubble menu-bar icon to show or hide the teleprompter, open Settings, or reopen the tour. Settings contains the script editor, pacing controls, appearance, stage-direction options, mirroring, and hotkeys. Optional Voice Follow can be toggled from Teleprompter > Toggle Voice Follow or with Control-Option-V. It asks for Microphone and Speech Recognition permission on first use, requires a locale Apple reports as on-device, saves no audio, and refuses cloud-only recognition. StoreKit commerce remains disabled and no product request is made. The overlay is a normal macOS window and may appear in captures.`
+`Build 7 contains no Mac network entitlement or listener. No account or sign-in is required. On first launch, click Skip or complete the three-page Welcome Guide; Kyuva then opens its searchable script studio. Select the included sample or create a script, adjust pace and reading options in the Prompt inspector, then click Open Prompt. Use the text-bubble menu-bar icon to reopen Kyuva or show and hide the prompt. Optional Voice Follow can be toggled from the prompt, Teleprompter > Toggle Voice Follow, or Control-Option-V. It asks for Microphone and Speech Recognition permission on first use, requires a locale Apple reports as on-device, saves no audio, and refuses cloud-only recognition. StoreKit commerce remains disabled and no product request is made. The prompt is a normal macOS window and may appear in captures.`
 
 ## Prepared lifetime Pro product — not created in App Store Connect
 
@@ -144,14 +178,16 @@ release are all verified.
 
 - Version release: Automatically release after approval.
 - Current public state: macOS `1.0 (4)` is live after Apple approval on 27 August 2026.
-- Prepared update: macOS `1.1 (6)` was accepted by Apple's uploader on 30 August
-  2026 and App Store Connect now reports the binary as confirmed and ready to
+- Processed prior build: macOS `1.1 (6)` was accepted by Apple's uploader on 30 August
+  2026 and App Store Connect reports the binary as confirmed and ready to
   submit. Its processed metadata reads back version `1.1`, build `6`, bundle ID
   `com.kikuai.kyuva`, macOS 13, `arm64` + `x86_64`, no non-exempt encryption,
   and only sandbox, microphone, user-selected-file, application/team identifier
   entitlements. It has not been selected for a version, submitted for review,
-  or released.
-- Screenshots: five real macOS release-candidate captures at an Apple-supported size; no app preview for 1.0.
+  or released, and it must not be selected now because build 7 supersedes it.
+- Acceptance candidate: macOS `1.1 (7)` and iPhone/Watch `1.0 (5)` are reserved
+  in source. They are not uploaded, selected, submitted, approved, or released.
+- Candidate screenshots: five English Mac captures at 1440 x 900, five English iPhone 6.9-inch captures at 1320 x 2868, and one English Apple Watch Series 10 capture at 416 x 496 are prepared under `AppStore/Screenshots/`. They are not uploaded. No app preview is prepared.
 - App Privacy: published as `Data Not Collected`.
 - Distribution: public, free, and verified in exactly the 27 European Union storefronts.
 - The reviewer reply and the notes above were sent and persisted before resubmission.

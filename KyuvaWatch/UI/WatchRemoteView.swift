@@ -3,6 +3,8 @@ import SwiftUI
 struct WatchRemoteView: View {
     @EnvironmentObject private var session: WatchSessionController
 
+    private let watchAccent = Color(red: 0.79, green: 0.81, blue: 1)
+
     private var controlsEnabled: Bool {
         session.isReachable && session.snapshot.isPromptActive
     }
@@ -21,7 +23,7 @@ struct WatchRemoteView: View {
                 }
 
                 ProgressView(value: session.snapshot.progress)
-                    .tint(.cyan)
+                    .tint(watchAccent)
                     .accessibilityLabel("Prompt progress")
                     .accessibilityValue("\(Int(session.snapshot.progress * 100)) percent")
 
@@ -34,7 +36,7 @@ struct WatchRemoteView: View {
                         .frame(maxWidth: .infinity, minHeight: 48)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(.cyan)
+                .tint(watchAccent)
                 .disabled(!controlsEnabled)
                 .accessibilityLabel(session.snapshot.isPaused ? "Play" : "Pause")
 

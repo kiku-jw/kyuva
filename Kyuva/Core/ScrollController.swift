@@ -260,10 +260,21 @@ class ScrollController: ObservableObject {
         visibleHeight: CGFloat,
         wordCount: Int
     ) {
+        let previousMaximumOffset = maximumOffset
+        let previousProgress: CGFloat? = previousMaximumOffset > 0
+            ? min(1, max(0, scrollOffset / previousMaximumOffset))
+            : nil
+
         self.contentHeight = max(0, contentHeight)
         self.visibleHeight = max(0, visibleHeight)
         self.wordCount = max(0, wordCount)
-        scrollOffset = min(scrollOffset, maximumOffset)
+
+        if let previousProgress {
+            scrollOffset = previousProgress * maximumOffset
+        } else {
+            scrollOffset = min(scrollOffset, maximumOffset)
+        }
+
         recalculateScrollSpeed()
     }
 

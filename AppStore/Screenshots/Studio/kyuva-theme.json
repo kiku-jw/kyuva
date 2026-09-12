@@ -1,0 +1,10 @@
+{
+  "id": "kyuva-studio",
+  "name": "Kyuva Studio",
+  "bg": "#EEEFF6",
+  "bgAlt": "#15141B",
+  "fg": "#111116",
+  "fgAlt": "#F7F6FF",
+  "accent": "#7478D0",
+  "muted": "#6C6C78"
+}
