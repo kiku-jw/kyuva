@@ -1,19 +1,25 @@
 # App Store metadata — English (U.S.)
 
-> Document class: release input. This file owns the first macOS App Store
-> listing copy, the prepared 1.1 update, and compliance choices. Update it
-> whenever the shipped product or the App Store Connect listing changes.
+> Document class: prepared release draft. The current source and Issue #2 own
+> release state; this file owns English copy for the existing Mac listing and
+> the unsubmitted Mac 1.1 candidate. Root's follow-up owns any future Store
+> save. Update it when the shipped binary, candidate, or App Store Connect
+> readback changes.
 
 ## App identity
 
-- Public 1.0 name: `Kyuva`
-- Prepared 1.1 name: `Kyuva: Teleprompter`
+- App Store record: `6804827338`
 - Bundle ID: `com.kikuai.kyuva`
 - SKU: `kyuva-macos-1`
+- Public 1.0 name (current listing reference): `Kyuva`
+- Candidate 1.1 name (draft, not uploaded): `Kyuva: Teleprompter` (19/30)
 - Public version/build: `1.0 (4)`
-- Acceptance candidate/build: `1.1 (7)`
+- Acceptance candidate/build: `1.1 (7)` from source `a80956c`
 - Publisher: `Mykyta Dudnichenko`
 - Primary language: English (U.S.)
+- Source localizations: English (`en`) and Base only; no Russian app
+  localization is enabled in the Xcode project. `metadata-ru.md` is a Store
+  copy draft, not proof of a localized binary.
 - Platform: macOS 13 or later, Apple silicon and Intel
 - Primary category: Productivity
 - Price: Free
@@ -41,7 +47,16 @@ Accounts.
 - Telegram: `https://apps.apple.com/ie/app/apple-store/id6804827338?pt=129302835&ct=telegram&mt=8`
 - LinkedIn: `https://apps.apple.com/ie/app/apple-store/id6804827338?pt=129302835&ct=linkedin&mt=8`
 
-## Product page
+## Current macOS 1.0 copy draft — no Store save in this pass
+
+The following copy describes the existing Mac `1.0 (4)` listing and is prepared
+for the root task's action-time promotional-text update only. This pass does not
+claim a Store save. It does not mention Voice Follow, the redesigned script
+studio, or any candidate-only behavior.
+
+### Name
+
+`Kyuva`
 
 ### Subtitle
 
@@ -61,8 +76,6 @@ Set up a script, place the compact always-on-top prompter where you need it, and
 • words per minute;
 • a target finish time.
 
-When your Mac supports on-device recognition for the script language, optional Voice Follow can advance the prompt from your spoken position. Kyuva refuses cloud-only speech recognition instead of uploading audio.
-
 Kyuva also lets you:
 
 • drag and resize the camera-side overlay;
@@ -79,13 +92,64 @@ The prompter is a normal macOS window and may appear in screen shares or recordi
 
 ### Keywords
 
-`autocue,webcam,meeting,presenter,notes,scroll,mirror,offline,overlay,speech,wpm,cue,public speaking`
+`teleprompter,prompt,script,presentation,video,camera,speech,recording,scroll,reader`
+
+### Version 1.0 release notes
+
+`Initial release of Kyuva for macOS.`
+
+## Prepared macOS 1.1 metadata — draft prepared, root save forthcoming
+
+This copy is prepared for a future root-owned Store save. Use it only after the
+owner has accepted the exact candidate and App Store Connect has read back the
+uploaded build. It describes source `a80956c` and must not be presented as
+public availability.
+
+### Name
+
+`Kyuva: Teleprompter`
+
+### Subtitle
+
+`Scripts for Calls & Videos`
+
+### Promotional text
+
+`Keep a calm Mac teleprompter beside the camera, pace by speed, words per minute, or finish time, and present without accounts or cloud uploads.`
+
+### Description
+
+Kyuva is a local-first teleprompter for Mac. It keeps a readable script near your camera so you can speak naturally in calls, presentations, lessons, product demos, and prepared talks.
+
+Start with the searchable script studio, adjust the prompt, and choose:
+
+• fixed scroll speed;
+• words per minute;
+• a target finish time.
+
+Kyuva also lets you:
+
+• resize and move the camera-side overlay;
+• follow a centered reading cue with progress and remaining time;
+• dim or hide bracketed stage directions;
+• mirror text for beam-splitter teleprompter rigs;
+• move the prompt between connected displays;
+• control scrolling with the keyboard, trackpad, or mouse;
+• import and export scripts.
+
+On Macs and for languages that Apple supports on device, optional Voice Follow can advance the prompt from your spoken position. Kyuva does not upload audio or fall back to cloud-only recognition.
+
+There is no account, subscription, advertising, analytics, or required cloud service. Scripts and settings stay on your Mac. The prompt is a normal macOS window and may appear in screen shares or recordings; check your preview before presenting.
+
+### Keywords
+
+`webcam,meeting,presentation,notes,scroll,mirror,offline,overlay,speech,wpm,cue,public speaking`
 
 ### Version 1.1 release notes
 
 `Adds a searchable script studio, a calmer camera-side prompt, flexible Fixed/WPM/Duration pacing, and optional on-device Voice Follow for supported languages. Kyuva keeps scripts local and refuses cloud-only speech recognition.`
 
-## Prepared iPhone and Apple Watch product page — not uploaded
+## Prepared iPhone and Apple Watch copy — source-only, no live claim
 
 ### Subtitle
 
@@ -113,7 +177,7 @@ There is no account, subscription, advertising, analytics, or required cloud ser
 
 ### Keywords
 
-`autocue,webcam,meeting,presenter,notes,scroll,mirror,offline,speech,wpm,cue,remote,public speaking`
+`webcam,meeting,presentation,notes,scroll,mirror,offline,speech,wpm,remote,public speaking`
 
 ### Version 1.0 release notes
 
@@ -130,7 +194,10 @@ There is no account, subscription, advertising, analytics, or required cloud ser
 - Age rating questionnaire: answer `None` for every content descriptor unless App Store Connect introduces a descriptor that accurately applies. Do not infer the final displayed rating until Apple calculates it.
 - Content rights: the app ships no third-party media or licensed content.
 
-## App Review
+## App Review — candidate build 7 only
+
+These notes describe the unuploaded Mac 1.1 candidate, not the public Mac 1.0
+binary.
 
 ### Sign-in
 
@@ -191,4 +258,7 @@ release are all verified.
 - App Privacy: published as `Data Not Collected`.
 - Distribution: public, free, and verified in exactly the 27 European Union storefronts.
 - The reviewer reply and the notes above were sent and persisted before resubmission.
-- The owner's 29 August 2026 instruction authorizes preparing and uploading the next build. Submission, metadata publication, and release still require exact readback of the uploaded build and remaining physical acceptance gates.
+- A 29 August 2026 instruction authorized preparation of the next build; do
+  not infer current upload or submission approval from that historical note.
+  Upload, metadata publication, and release still require fresh owner approval,
+  exact readback, and the remaining physical acceptance gates.
