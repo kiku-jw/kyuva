@@ -31,6 +31,12 @@ struct MobileEditorView: View {
     var body: some View {
         NavigationStack(path: $path) {
             List {
+                if case .failed = scriptManager.saveState {
+                    Section {
+                        MobileSaveStatus()
+                    }
+                }
+
                 Section {
                     ForEach(filteredScripts) { script in
                         NavigationLink(value: script.id) {
@@ -71,7 +77,9 @@ struct MobileEditorView: View {
             }
             .listStyle(.insetGrouped)
             .overlay {
-                if filteredScripts.isEmpty {
+                if case .failed = scriptManager.saveState {
+                    EmptyView()
+                } else if filteredScripts.isEmpty {
                     ContentUnavailableView.search(text: searchText)
                 }
             }
@@ -85,6 +93,7 @@ struct MobileEditorView: View {
                         Image(systemName: "square.and.arrow.down")
                     }
                     .accessibilityLabel("Import text file")
+                    .disabled(scriptManager.loadError != nil)
 
                     Button {
                         createScript()
@@ -92,6 +101,7 @@ struct MobileEditorView: View {
                         Image(systemName: "plus")
                     }
                     .accessibilityLabel("New script")
+                    .disabled(scriptManager.loadError != nil)
                 }
             }
             .navigationDestination(for: UUID.self) { scriptId in
@@ -104,6 +114,7 @@ struct MobileEditorView: View {
             allowedContentTypes: [.plainText, .text],
             allowsMultipleSelection: false
         ) { result in
+            guard scriptManager.loadError == nil else { return }
             do {
                 let imported = try ScriptTextTransfer.readImport(from: result.get())
                 let script = scriptManager.importScript(
@@ -133,6 +144,7 @@ struct MobileEditorView: View {
     }
 
     private func createScript() {
+        guard scriptManager.loadError == nil else { return }
         scriptManager.createNewScript()
         if let id = scriptManager.selectedScriptId {
             path = [id]
@@ -165,6 +177,34 @@ struct MobileEditorView: View {
                 if !isPresented { importError = nil }
             }
         )
+    }
+}
+
+private struct MobileSaveStatus: View {
+    @EnvironmentObject private var scriptManager: ScriptManager
+
+    var body: some View {
+        switch scriptManager.saveState {
+        case .pending:
+            Label("Unsaved changes", systemImage: "pencil.circle")
+        case .saving:
+            Label("Saving…", systemImage: "arrow.triangle.2.circlepath")
+        case .saved:
+            Label("Saved locally", systemImage: "checkmark.circle")
+        case .failed(let message):
+            VStack(alignment: .leading, spacing: 8) {
+                Label(scriptManager.loadError == nil ? "Not saved" : "Couldn't open your scripts",
+                      systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.red)
+                Text(message)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button(scriptManager.loadError == nil ? "Retry Save" : "Retry Opening") {
+                    scriptManager.retrySave()
+                }
+                .buttonStyle(.bordered)
+            }
+        }
     }
 }
 
@@ -250,6 +290,11 @@ private struct MobileScriptEditorView: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
                     .padding(.bottom, 12)
+
+                    MobileSaveStatus()
+                        .font(.caption)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 12)
 
                     Divider()
 
@@ -366,7 +411,6 @@ private struct MobileScriptEditorView: View {
                     systemImage: "text.word.spacing"
                 )
                 Label(estimatedDuration(for: script), systemImage: "clock")
-                Label("Saved locally", systemImage: "checkmark.circle")
             }
         } else {
             HStack(spacing: 12) {
@@ -375,8 +419,6 @@ private struct MobileScriptEditorView: View {
                     systemImage: "text.word.spacing"
                 )
                 Label(estimatedDuration(for: script), systemImage: "clock")
-                Spacer()
-                Label("Saved locally", systemImage: "checkmark.circle")
             }
         }
     }
@@ -406,7 +448,7 @@ private struct MobileScriptEditorView: View {
         }
         .buttonStyle(.borderedProminent)
         .tint(mobileAccent)
-        .disabled(isDisabled)
+        .disabled(isDisabled || scriptManager.loadError != nil)
     }
 
     private var nameBinding: Binding<String> {
@@ -431,8 +473,9 @@ private struct MobileScriptEditorView: View {
     }
 
     private func presentScript() {
+        guard scriptManager.loadError == nil else { return }
         scriptManager.selectedScriptId = scriptId
-        scriptManager.flushPendingSave()
+        guard case .success = scriptManager.flushPendingSave() else { return }
         isPresenting = true
     }
 

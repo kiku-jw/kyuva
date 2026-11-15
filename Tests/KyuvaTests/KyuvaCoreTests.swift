@@ -247,6 +247,34 @@ final class ScriptManagerPersistenceTests: XCTestCase {
 }
 
 final class ScrollControllerTests: XCTestCase {
+    func testResetKeepsManualPauseIntentAfterAutomaticPauseUntilExplicitResume() throws {
+        let suiteName = "KyuvaTests.ScrollController.Reset.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let controller = ScrollController(startTimer: false, userDefaults: defaults)
+        controller.updateContentMetrics(contentHeight: 1_150, visibleHeight: 150, wordCount: 200)
+        controller.resume()
+        XCTAssertFalse(controller.isPaused)
+        XCTAssertFalse(controller.wasManuallyPaused)
+        controller.goToOffset(250)
+        controller.highlightedLine = 2
+
+        controller.pause() // The overlay's automatic hover pause.
+        XCTAssertFalse(controller.wasManuallyPaused)
+        controller.reset()
+
+        XCTAssertEqual(controller.scrollOffset, 0)
+        XCTAssertNil(controller.highlightedLine)
+        XCTAssertTrue(controller.isPaused)
+        XCTAssertTrue(controller.wasManuallyPaused,
+                      "Reset must prevent hover exit from resuming playback")
+
+        controller.resume()
+        XCTAssertFalse(controller.isPaused)
+        XCTAssertFalse(controller.wasManuallyPaused)
+    }
+
     func testSavedScrollSpeedAppliesAtStartupAndWhenDefaultsChange() {
         let suiteName = "KyuvaTests.ScrollController.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
