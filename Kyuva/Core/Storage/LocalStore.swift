@@ -6,7 +6,26 @@ class LocalStore {
     private let scriptsURL: URL
     private let backupURL: URL
     private let saveQueue: DispatchQueue
+    // Accessed only on saveQueue, including synchronous result readback.
+    private var lastSaveResult: Result<Void, Error> = .success(())
     
+    enum QAStorageConfigurationError: LocalizedError {
+        case absoluteDirectoryRequired
+
+        var errorDescription: String? {
+            "Kyuva QA requires an absolute KyuvaQAStorageDirectory Info.plist value. No default library was opened."
+        }
+    }
+
+    /// QA app routing must survive launches that do not inherit the shell environment.
+    static func qaStorageDirectory(bundleIdentifier: String?, fixturePath: String?) throws -> URL? {
+        guard bundleIdentifier?.hasPrefix("com.kikuai.kyuva.qa") == true else { return nil }
+        guard let fixturePath, fixturePath.hasPrefix("/"), !fixturePath.contains("\0") else {
+            throw QAStorageConfigurationError.absoluteDirectoryRequired
+        }
+        return URL(fileURLWithPath: fixturePath, isDirectory: true).standardizedFileURL
+    }
+
     init(
         directoryURL: URL? = nil,
         saveQueue: DispatchQueue? = nil
@@ -14,15 +33,32 @@ class LocalStore {
         self.saveQueue = saveQueue ?? DispatchQueue(label: "com.kyuva.storage", qos: .background)
 
 #if DEBUG
+        let qaDirectory: URL?
+        if directoryURL == nil {
+            do {
+                qaDirectory = try Self.qaStorageDirectory(
+                    bundleIdentifier: Bundle.main.bundleIdentifier,
+                    fixturePath: Bundle.main.object(forInfoDictionaryKey: "KyuvaQAStorageDirectory") as? String
+                )
+            } catch {
+                // Fail before any FileManager call or Application Support fallback.
+                preconditionFailure(error.localizedDescription)
+            }
+        } else {
+            qaDirectory = nil
+        }
         let debugDirectory = ProcessInfo.processInfo.environment["KYUVA_STORAGE_DIRECTORY"]
             .flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0, isDirectory: true) }
 #else
+        let qaDirectory: URL? = nil
         let debugDirectory: URL? = nil
 #endif
 
         let storageDirectory: URL
         if let directoryURL {
             storageDirectory = directoryURL
+        } else if let qaDirectory {
+            storageDirectory = qaDirectory
         } else if let debugDirectory {
             storageDirectory = debugDirectory
         } else {
@@ -58,10 +94,10 @@ class LocalStore {
         }
     }
     
-    func saveScripts(_ scripts: [Script]) {
+    func saveScripts(_ scripts: [Script], completion: ((Result<Void, Error>) -> Void)? = nil) {
         let scriptsCopy = scripts // Capture copy for thread safety
         saveQueue.async {
-            do {
+            let result = Result<Void, Error> {
                 let data = try JSONEncoder().encode(scriptsCopy)
                 if FileManager.default.fileExists(atPath: self.scriptsURL.path),
                    let currentData = try? Data(contentsOf: self.scriptsURL),
@@ -72,15 +108,16 @@ class LocalStore {
                 // Data's atomic option writes a complete replacement file, so a
                 // crash cannot leave a partially encoded scripts document.
                 try data.write(to: self.scriptsURL, options: .atomic)
-            } catch {
-                print("Failed to save scripts: \(error)")
             }
+            self.lastSaveResult = result
+            completion?(result)
         }
     }
 
-    /// Wait for queued writes to finish. Used by deterministic local round-trip tests.
-    func waitForPendingWrites() {
-        saveQueue.sync { }
+    /// Wait for ordered writes and report the last actual disk result.
+    @discardableResult
+    func waitForPendingWrites() -> Result<Void, Error> {
+        saveQueue.sync { lastSaveResult }
     }
 
     private func decodeScripts(at url: URL) throws -> [Script] {

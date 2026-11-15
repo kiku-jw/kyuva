@@ -9,6 +9,16 @@ import Combine
 class ScriptManager: ObservableObject {
     
     static let shared = ScriptManager()
+
+    enum SaveState: Equatable {
+        case pending
+        case saving
+        case saved
+        case failed(String)
+    }
+
+    @Published private(set) var saveState: SaveState = .saved
+    private var saveRevision: UInt64 = 0
     
     @Published var scripts: [Script] = []
     @Published var selectedScriptId: UUID?
@@ -96,6 +106,8 @@ class ScriptManager: ObservableObject {
     
     /// Call from UI to trigger debounced save
     func debounceSaveFromUI() {
+        saveRevision += 1
+        saveState = .pending
         saveWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             self?.saveWorkItem = nil
@@ -110,11 +122,20 @@ class ScriptManager: ObservableObject {
     }
 
     /// Persist the latest in-memory scripts before the process exits.
-    func flushPendingSave() {
+    @discardableResult
+    func flushPendingSave() -> Result<Void, Error> {
         saveWorkItem?.cancel()
         saveWorkItem = nil
         saveScripts()
-        storage.waitForPendingWrites()
+        let result = storage.waitForPendingWrites()
+        applySaveResult(result, revision: saveRevision)
+        return result
+    }
+
+    func retrySave() {
+        saveWorkItem?.cancel()
+        saveWorkItem = nil
+        saveScripts()
     }
     
     func selectNextScript() {
@@ -181,7 +202,23 @@ class ScriptManager: ObservableObject {
     }
     
     private func saveScripts() {
-        storage.saveScripts(scripts)
+        saveRevision += 1
+        let revision = saveRevision
+        saveState = .saving
+        storage.saveScripts(scripts) { [weak self] result in
+            DispatchQueue.main.async { [weak self] in
+                self?.applySaveResult(result, revision: revision)
+            }
+        }
+    }
+
+    private func applySaveResult(_ result: Result<Void, Error>, revision: UInt64) {
+        // An older queued write cannot label a newer edit as saved or failed.
+        guard revision == saveRevision else { return }
+        switch result {
+        case .success: saveState = .saved
+        case .failure(let error): saveState = .failed(error.localizedDescription)
+        }
     }
     
     // MARK: - Default Content

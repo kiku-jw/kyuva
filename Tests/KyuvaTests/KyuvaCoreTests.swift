@@ -1,4 +1,5 @@
 import XCTest
+import Combine
 @testable import Kyuva
 
 final class ScriptTextFileTests: XCTestCase {
@@ -419,5 +420,190 @@ final class RemoteControlProtocolTests: XCTestCase {
         XCTAssertEqual(snapshot.progress, 1)
         XCTAssertEqual(PlaybackSnapshot(message: snapshot.message), snapshot)
         XCTAssertNil(PlaybackSnapshot(message: ["isPaused": true] as [String: Any]))
+    }
+}
+
+@MainActor
+final class ScriptDeliveryScenarioTests: XCTestCase {
+    private func fixtureDirectory() throws -> URL {
+        let base = ProcessInfo.processInfo.environment["KYUVA_TEST_DIRECTORY"]
+            .map { URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? FileManager.default.temporaryDirectory
+        let directory = base.appendingPathComponent("KyuvaFlow-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    private func drainMainCallbacks() async {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.main.async { continuation.resume() }
+        }
+    }
+
+    func testUTF8ImportEditFlushAndReopenKeepsIdentityAndLatestRevision() async throws {
+        let directory = try fixtureDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let input = directory.appendingPathComponent("Виступ — 東京.txt")
+        let bytes = Data("Вітаю, світе 🙂\n[Пауза]\nHello, everyone.\n(Pause)".utf8)
+        try bytes.write(to: input)
+        let store = LocalStore(directoryURL: directory.appendingPathComponent("library"))
+        let manager = ScriptManager(storage: store)
+        let imported = manager.importScript(name: input.deletingPathExtension().lastPathComponent,
+            content: try ScriptTextFile.decodeImport(Data(contentsOf: input)))
+        let editedTitle = "Final — Виступ / 東京"
+        let editedText = imported.content + "\nمرحبا — Closing words."
+        manager.updateScriptName(imported.id, name: editedTitle)
+        manager.updateScriptContent(imported.id, content: editedText)
+        XCTAssertEqual(manager.saveState, .pending)
+        store.waitForPendingWrites()
+        await drainMainCallbacks()
+        XCTAssertEqual(manager.saveState, .pending, "Earlier completed writes cannot mark the newest edit saved")
+        try manager.flushPendingSave().get()
+        XCTAssertEqual(manager.saveState, .saved)
+        await drainMainCallbacks()
+        XCTAssertEqual(manager.saveState, .saved, "Older callbacks cannot overwrite the flushed revision")
+
+        let reopened = ScriptManager(storage: LocalStore(directoryURL: directory.appendingPathComponent("library")))
+        let restored = try XCTUnwrap(reopened.scripts.first { $0.id == imported.id })
+        XCTAssertEqual(restored.id, imported.id)
+        XCTAssertEqual(restored.name, editedTitle)
+        XCTAssertEqual(Data(restored.content.utf8), Data(editedText.utf8))
+        XCTAssertEqual(restored.promptLines.filter(\.isStageDirection).map(\.text), ["[Пауза]", "(Pause)"])
+        XCTAssertEqual(try Data(contentsOf: input), bytes)
+    }
+
+    func testRealTimerPlayPauseResetUsesIsolatedPaceAndPersistedScript() async throws {
+        let directory = try fixtureDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let manager = ScriptManager(storage: LocalStore(directoryURL: directory))
+        let imported = manager.importScript(name: "Controlled delivery", content: "Opening words\n[Look up]\nClosing words")
+        try manager.flushPendingSave().get()
+        let suite = "KyuvaTests.Flow.Timer.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(80, forKey: ScrollController.speedDefaultsKey)
+        let controller = ScrollController(startTimer: true, userDefaults: defaults)
+        // Stay far from the end: tick never reads its standard-domain endBehavior
+        // and the test does not mutate that preference or start speech.
+        controller.updateContentMetrics(contentHeight: 10_150, visibleHeight: 150,
+            wordCount: imported.wordCount(excludingStageDirections: true))
+        let advanced = expectation(description: "Actual scroll timer advances")
+        var fulfilled = false
+        let observation = controller.$scrollOffset.sink { value in
+            if value > 0 && !fulfilled { fulfilled = true; advanced.fulfill() }
+        }
+        controller.resume()
+        XCTAssertFalse(controller.isPaused)
+        await fulfillment(of: [advanced], timeout: 2)
+        controller.manualPause()
+        let pausedOffset = controller.scrollOffset
+        XCTAssertGreaterThan(pausedOffset, 0)
+        XCTAssertTrue(controller.wasManuallyPaused)
+        try await Task.sleep(nanoseconds: 80_000_000)
+        XCTAssertEqual(controller.scrollOffset, pausedOffset)
+        controller.reset()
+        XCTAssertEqual(controller.scrollOffset, 0)
+        XCTAssertTrue(controller.isPaused)
+        XCTAssertNil(controller.highlightedLine)
+        withExtendedLifetime(observation) {}
+        XCTAssertEqual(LocalStore(directoryURL: directory).loadScripts().last?.id, imported.id)
+    }
+
+    func testWriteFailureIsVisibleThenRetryPreservesOriginalAndBackup() async throws {
+        let directory = try fixtureDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = LocalStore(directoryURL: directory)
+        let original = Script(name: "Original — збережено", content: "Original words\n[Pause]")
+        store.saveScripts([original]); try store.waitForPendingWrites().get()
+        store.saveScripts([original]); try store.waitForPendingWrites().get()
+        let primary = directory.appendingPathComponent("scripts.json")
+        let backup = directory.appendingPathComponent("scripts.backup.json")
+        let preservedBackup = directory.appendingPathComponent("preserved-backup.json")
+        let primaryBytes = try Data(contentsOf: primary)
+        let backupBytes = try Data(contentsOf: backup)
+        try FileManager.default.moveItem(at: backup, to: preservedBackup)
+        try FileManager.default.createDirectory(at: backup, withIntermediateDirectories: false)
+        let manager = ScriptManager(storage: store)
+        let edited = "New revision — нові слова 🙂\n[Look up]"
+        manager.updateScriptContent(original.id, content: edited)
+        let result = manager.flushPendingSave()
+        guard case .failure = result else { return XCTFail("Blocked write must report failure") }
+        guard case .failed(let message) = manager.saveState else { return XCTFail("Manager must expose Not saved state") }
+        XCTAssertFalse(message.isEmpty)
+        XCTAssertEqual(manager.selectedScript?.content, edited)
+        XCTAssertEqual(try Data(contentsOf: primary), primaryBytes)
+        XCTAssertEqual(try Data(contentsOf: preservedBackup), backupBytes)
+        XCTAssertEqual(LocalStore(directoryURL: directory).loadScripts().first?.content, original.content)
+
+        try FileManager.default.removeItem(at: backup)
+        try FileManager.default.copyItem(at: preservedBackup, to: backup)
+        let saved = expectation(description: "Explicit retry reports durable success")
+        var fulfilled = false
+        let observation = manager.$saveState.sink { state in
+            if state == .saved && !fulfilled { fulfilled = true; saved.fulfill() }
+        }
+        manager.retrySave()
+        XCTAssertEqual(manager.saveState, .saving)
+        await fulfillment(of: [saved], timeout: 2)
+        withExtendedLifetime(observation) {}
+        XCTAssertEqual(manager.saveState, .saved)
+        let restored = try XCTUnwrap(LocalStore(directoryURL: directory).loadScripts().first)
+        XCTAssertEqual(restored.id, original.id)
+        XCTAssertEqual(restored.name, original.name)
+        XCTAssertEqual(restored.content, edited)
+        XCTAssertEqual(try Data(contentsOf: backup), primaryBytes)
+        XCTAssertEqual(try Data(contentsOf: preservedBackup), backupBytes)
+    }
+
+    func testExportReadbackPreservesUnicodeDirectionsAndInputBytes() throws {
+        let directory = try fixtureDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let input = directory.appendingPathComponent("input.txt")
+        let bytes = Data("Café e\u{301} — Україна 🙂\r\n[Погляд у камеру]\r\nمرحبا\n(Pause)\n東京".utf8)
+        try bytes.write(to: input)
+        let manager = ScriptManager(storage: LocalStore(directoryURL: directory.appendingPathComponent("library")))
+        let script = manager.importScript(name: "Виступ/東京", content: try ScriptTextFile.decodeImport(Data(contentsOf: input)))
+        try manager.flushPendingSave().get()
+        let output = try ScriptTextFile.writeExport(name: script.name, content: script.content,
+            in: directory.appendingPathComponent("exports"))
+        XCTAssertEqual(try Data(contentsOf: output), bytes)
+        XCTAssertEqual(try Data(contentsOf: input), bytes)
+        let reopened = try XCTUnwrap(LocalStore(directoryURL: directory.appendingPathComponent("library"))
+            .loadScripts().first { $0.id == script.id })
+        XCTAssertEqual(Data(reopened.content.utf8), bytes)
+        XCTAssertEqual(reopened.promptLines.filter(\.isStageDirection).map(\.text), ["[Погляд у камеру]", "(Pause)"])
+    }
+}
+
+final class QAStorageRoutingTests: XCTestCase {
+    func testQABundleRequiresAndSelectsExplicitAbsoluteFixtureDirectory() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("KyuvaQARoute-\(UUID().uuidString)", isDirectory: true)
+        let selected = try LocalStore.qaStorageDirectory(
+            bundleIdentifier: "com.kikuai.kyuva.qa20261115", fixturePath: directory.path
+        )
+        XCTAssertEqual(selected, directory.standardizedFileURL)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.path), "Selection must not create directories")
+    }
+
+    func testNonQABundleDoesNotSelectOrRequireQAFixturePath() throws {
+        XCTAssertNil(try LocalStore.qaStorageDirectory(bundleIdentifier: "com.kikuai.kyuva", fixturePath: nil))
+        XCTAssertNil(try LocalStore.qaStorageDirectory(bundleIdentifier: "com.other.product", fixturePath: "relative"))
+    }
+
+    func testQABundleMissingFixtureKeyFailsClosed() {
+        XCTAssertThrowsError(try LocalStore.qaStorageDirectory(
+            bundleIdentifier: "com.kikuai.kyuva.qa20261115", fixturePath: nil
+        )) { error in
+            XCTAssertTrue(error.localizedDescription.contains("KyuvaQAStorageDirectory"))
+        }
+    }
+
+    func testQABundleRelativeOrInvalidFixtureKeyFailsClosed() {
+        for path in ["", "relative/scripts", "~/scripts", "file:///tmp/fixture", "/tmp/invalid\0path"] {
+            XCTAssertThrowsError(try LocalStore.qaStorageDirectory(
+                bundleIdentifier: "com.kikuai.kyuva.qa20261115", fixturePath: path
+            ), "Invalid QA path must never select an environment/default fallback: \(path)")
+        }
     }
 }

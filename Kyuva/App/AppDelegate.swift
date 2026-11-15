@@ -161,8 +161,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         false
     }
 
-    func applicationWillTerminate(_ notification: Notification) {
-        ScriptManager.shared.flushPendingSave()
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        switch ScriptManager.shared.flushPendingSave() {
+        case .success:
+            return .terminateNow
+        case .failure:
+            let alert = NSAlert()
+            alert.alertStyle = .warning
+            alert.messageText = "Your latest changes aren't saved."
+            alert.informativeText = "Keep Kyuva open to retry saving or export your script. Quitting without saving discards your unsaved changes."
+            alert.addButton(withTitle: "Keep Editing")
+            let quitButton = alert.addButton(withTitle: "Quit Without Saving")
+            quitButton.hasDestructiveAction = true
+            return alert.runModal() == .alertSecondButtonReturn ? .terminateNow : .terminateCancel
+        }
     }
 
     func windowWillClose(_ notification: Notification) {

@@ -100,6 +100,26 @@ struct SettingsView: View {
         }
     }
 
+    @ViewBuilder
+    private var saveStatus: some View {
+        switch scriptManager.saveState {
+        case .pending:
+            Label("Unsaved changes", systemImage: "pencil.circle")
+        case .saving:
+            Label("Saving…", systemImage: "arrow.triangle.2.circlepath")
+        case .saved:
+            Label("Saved locally", systemImage: "checkmark.circle")
+        case .failed(let message):
+            HStack(spacing: 8) {
+                Label("Not saved", systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.red)
+                    .help(message)
+                Button("Retry Save") { scriptManager.retrySave() }
+                    .buttonStyle(.borderless)
+            }
+        }
+    }
+
     private var scriptLibrary: some View {
         VStack(spacing: 0) {
             HStack {
@@ -210,7 +230,7 @@ struct SettingsView: View {
                         systemImage: "clock"
                     )
                     Spacer()
-                    Label("Autosaved locally", systemImage: "checkmark.circle")
+                    saveStatus
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
