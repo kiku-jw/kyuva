@@ -71,6 +71,7 @@ struct SettingsView: View {
                 } label: {
                     Label("Import", systemImage: "square.and.arrow.down")
                 }
+                .disabled(scriptManager.loadError != nil)
 
                 Button {
                     showPrompt()
@@ -114,7 +115,9 @@ struct SettingsView: View {
                 Label("Not saved", systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.red)
                     .help(message)
-                Button("Retry Save") { scriptManager.retrySave() }
+                Button(scriptManager.loadError == nil ? "Retry Save" : "Retry Opening") {
+                    scriptManager.retrySave()
+                }
                     .buttonStyle(.borderless)
             }
         }
@@ -141,6 +144,7 @@ struct SettingsView: View {
                 .buttonStyle(.bordered)
                 .help("New script")
                 .accessibilityLabel("New script")
+                .disabled(scriptManager.loadError != nil)
             }
             .padding(.horizontal, 16)
             .padding(.top, 16)
@@ -274,16 +278,26 @@ struct SettingsView: View {
                 Image(systemName: "doc.text")
                     .font(.system(size: 36))
                     .foregroundStyle(.secondary)
-                Text("Choose a script")
-                    .font(.title2.bold())
-                Text("Select a script from the library or create a new one.")
-                    .foregroundStyle(.secondary)
-                Button("New Script") {
-                    scriptManager.createNewScript()
+                if let error = scriptManager.loadError {
+                    Text("Couldn't open your scripts")
+                        .font(.title2.bold())
+                    Text(error)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    Button("Retry Opening") { scriptManager.retryOpening() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(studioAccent)
+                        .foregroundStyle(.black)
+                } else {
+                    Text("Choose a script")
+                        .font(.title2.bold())
+                    Text("Select a script from the library or create a new one.")
+                        .foregroundStyle(.secondary)
+                    Button("New Script") { scriptManager.createNewScript() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(studioAccent)
+                        .foregroundStyle(.black)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(studioAccent)
-                .foregroundStyle(.black)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }

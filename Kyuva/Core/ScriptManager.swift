@@ -18,6 +18,12 @@ class ScriptManager: ObservableObject {
     }
 
     @Published private(set) var saveState: SaveState = .saved
+    @Published private(set) var loadError: String?
+
+    private struct OpeningFailure: LocalizedError {
+        let message: String
+        var errorDescription: String? { message }
+    }
     private var saveRevision: UInt64 = 0
     
     @Published var scripts: [Script] = []
@@ -46,7 +52,8 @@ class ScriptManager: ObservableObject {
     init(storage: LocalStore = LocalStore()) {
         self.storage = storage
         loadScripts()
-        
+        guard loadError == nil else { return }
+
         // Select first script by default
         if selectedScriptId == nil, let first = scripts.first {
             selectedScriptId = first.id
@@ -107,8 +114,17 @@ class ScriptManager: ObservableObject {
     /// Call from UI to trigger debounced save
     func debounceSaveFromUI() {
         saveRevision += 1
-        saveState = .pending
         saveWorkItem?.cancel()
+        guard let error = loadError else {
+            scheduleDebouncedSave()
+            return
+        }
+        saveWorkItem = nil
+        saveState = .failed(error)
+    }
+
+    private func scheduleDebouncedSave() {
+        saveState = .pending
         let workItem = DispatchWorkItem { [weak self] in
             self?.saveWorkItem = nil
             self?.saveScripts()
@@ -126,6 +142,11 @@ class ScriptManager: ObservableObject {
     func flushPendingSave() -> Result<Void, Error> {
         saveWorkItem?.cancel()
         saveWorkItem = nil
+        if let error = loadError {
+            saveRevision += 1
+            saveState = .failed(error)
+            return .failure(OpeningFailure(message: error))
+        }
         saveScripts()
         let result = storage.waitForPendingWrites()
         applySaveResult(result, revision: saveRevision)
@@ -133,6 +154,10 @@ class ScriptManager: ObservableObject {
     }
 
     func retrySave() {
+        if loadError != nil {
+            retryOpening()
+            return
+        }
         saveWorkItem?.cancel()
         saveWorkItem = nil
         saveScripts()
@@ -146,6 +171,36 @@ class ScriptManager: ObservableObject {
         selectedScriptId = scripts[nextIndex].id
     }
     
+    /// Revalidate disk without discarding any retained in-memory drafts.
+    func retryOpening() {
+        guard loadError != nil else { return }
+        saveWorkItem?.cancel()
+        saveWorkItem = nil
+        saveRevision += 1
+        do {
+            let loaded = try storage.loadScripts()
+            let drafts = scripts
+            loadError = nil
+            if drafts.isEmpty {
+                scripts = loaded
+                selectedScriptId = scripts.first?.id
+                saveState = .saved
+                if scripts.isEmpty { createNewScript() }
+            } else {
+                let draftIDs = Set(drafts.map(\.id))
+                scripts = loaded.filter { !draftIDs.contains($0.id) } + drafts
+                if !scripts.contains(where: { $0.id == selectedScriptId }) {
+                    selectedScriptId = scripts.first?.id
+                }
+                // A successful read does not save drafts. Resume validated
+                // autosave and keep the pending state until its write succeeds.
+                debounceSaveFromUI()
+            }
+        } catch {
+            recordOpeningFailure(error)
+        }
+    }
+
     // MARK: - Import/Export
 
     @discardableResult
@@ -198,12 +253,26 @@ class ScriptManager: ObservableObject {
     // MARK: - Persistence
     
     private func loadScripts() {
-        scripts = storage.loadScripts()
+        do {
+            scripts = try storage.loadScripts()
+        } catch {
+            recordOpeningFailure(error)
+        }
+    }
+
+    private func recordOpeningFailure(_ error: Error) {
+        let message = "Couldn't open your scripts. Check folder access and try again. " + error.localizedDescription
+        loadError = message
+        saveState = .failed(message)
     }
     
     private func saveScripts() {
         saveRevision += 1
         let revision = saveRevision
+        if let error = loadError {
+            saveState = .failed(error)
+            return
+        }
         saveState = .saving
         storage.saveScripts(scripts) { [weak self] result in
             DispatchQueue.main.async { [weak self] in
