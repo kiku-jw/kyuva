@@ -71,6 +71,7 @@ struct SettingsView: View {
                 } label: {
                     Label("Import", systemImage: "square.and.arrow.down")
                 }
+                .disabled(scriptManager.loadError != nil)
 
                 Button {
                     showPrompt()
@@ -100,6 +101,28 @@ struct SettingsView: View {
         }
     }
 
+    @ViewBuilder
+    private var saveStatus: some View {
+        switch scriptManager.saveState {
+        case .pending:
+            Label("Unsaved changes", systemImage: "pencil.circle")
+        case .saving:
+            Label("Saving…", systemImage: "arrow.triangle.2.circlepath")
+        case .saved:
+            Label("Saved locally", systemImage: "checkmark.circle")
+        case .failed(let message):
+            HStack(spacing: 8) {
+                Label("Not saved", systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.red)
+                    .help(message)
+                Button(scriptManager.loadError == nil ? "Retry Save" : "Retry Opening") {
+                    scriptManager.retrySave()
+                }
+                    .buttonStyle(.borderless)
+            }
+        }
+    }
+
     private var scriptLibrary: some View {
         VStack(spacing: 0) {
             HStack {
@@ -121,6 +144,7 @@ struct SettingsView: View {
                 .buttonStyle(.bordered)
                 .help("New script")
                 .accessibilityLabel("New script")
+                .disabled(scriptManager.loadError != nil)
             }
             .padding(.horizontal, 16)
             .padding(.top, 16)
@@ -210,7 +234,7 @@ struct SettingsView: View {
                         systemImage: "clock"
                     )
                     Spacer()
-                    Label("Autosaved locally", systemImage: "checkmark.circle")
+                    saveStatus
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -254,16 +278,26 @@ struct SettingsView: View {
                 Image(systemName: "doc.text")
                     .font(.system(size: 36))
                     .foregroundStyle(.secondary)
-                Text("Choose a script")
-                    .font(.title2.bold())
-                Text("Select a script from the library or create a new one.")
-                    .foregroundStyle(.secondary)
-                Button("New Script") {
-                    scriptManager.createNewScript()
+                if let error = scriptManager.loadError {
+                    Text("Couldn't open your scripts")
+                        .font(.title2.bold())
+                    Text(error)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                    Button("Retry Opening") { scriptManager.retryOpening() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(studioAccent)
+                        .foregroundStyle(.black)
+                } else {
+                    Text("Choose a script")
+                        .font(.title2.bold())
+                    Text("Select a script from the library or create a new one.")
+                        .foregroundStyle(.secondary)
+                    Button("New Script") { scriptManager.createNewScript() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(studioAccent)
+                        .foregroundStyle(.black)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(studioAccent)
-                .foregroundStyle(.black)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }

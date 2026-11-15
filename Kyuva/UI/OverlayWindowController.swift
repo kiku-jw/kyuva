@@ -570,17 +570,20 @@ struct OverlayContentView: View {
                     )
                     .accessibilityValue(overlayStatusText)
                     
-                    // Pause indicator
-                    if scrollController.isPaused && !showControls {
+                    // Primary playback controls remain available without hover.
+                    if !showControls {
                         VStack {
-                            HStack(spacing: 8) {
-                                Image(systemName: scrollController.scrollOffset == 0 ? "play.circle.fill" : "pause.circle.fill")
-                                    .accessibilityHidden(true)
-                                Text(scrollController.scrollOffset == 0 ? "READY" : "PAUSED")
-                                    .font(.system(.caption, design: .monospaced).bold())
+                            HStack {
+                                HStack(spacing: 6) {
+                                    playPauseButton
+                                    resetButton
+                                }
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
+                                .foregroundColor(.white)
+                                .background(.black.opacity(requiresOpaqueBackground ? 1 : 0.65), in: Capsule())
                                 Spacer()
                             }
-                            .foregroundColor(.white.opacity(0.85))
                             Spacer()
                         }
                         .padding(7)
@@ -651,6 +654,32 @@ struct OverlayContentView: View {
         )
     }
     
+    private var playPauseButton: some View {
+        Button(action: { scrollController.togglePause() }) {
+            Image(systemName: scrollController.isPaused ? "play.fill" : "pause.fill")
+                .font(.system(size: 14))
+                .frame(width: 28, height: 28)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(speechRecognizer.state.isEngaged)
+        .help(scrollController.isPaused ? "Start scrolling" : "Pause scrolling")
+        .accessibilityLabel(scrollController.isPaused ? "Start scrolling" : "Pause scrolling")
+        .accessibilityValue(scrollController.isPaused ? "Paused" : "Playing")
+    }
+
+    private var resetButton: some View {
+        Button(action: resetPromptPosition) {
+            Image(systemName: "arrow.counterclockwise")
+                .font(.system(size: 12))
+                .frame(width: 24, height: 24)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help("Reset to the beginning")
+        .accessibilityLabel("Reset to the beginning")
+    }
+
     private var controlBar: some View {
         HStack(spacing: 8) {
             // Drag handle
@@ -677,17 +706,7 @@ struct OverlayContentView: View {
                 .frame(height: 16)
                 .background(.white.opacity(0.3))
             
-            // Play/Pause
-            Button(action: { scrollController.togglePause() }) {
-                Image(systemName: scrollController.isPaused ? "play.fill" : "pause.fill")
-                    .font(.system(size: 14))
-                    .frame(width: 28, height: 28)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(speechRecognizer.state.isEngaged)
-            .help(scrollController.isPaused ? "Start scrolling" : "Pause scrolling")
-            .accessibilityLabel(scrollController.isPaused ? "Start scrolling" : "Pause scrolling")
+            playPauseButton
             
             Divider()
                 .frame(height: 16)
@@ -754,16 +773,7 @@ struct OverlayContentView: View {
             
             Spacer()
             
-            // Reset
-            Button(action: resetPromptPosition) {
-                Image(systemName: "arrow.counterclockwise")
-                    .font(.system(size: 12))
-                    .frame(width: 24, height: 24)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .help("Reset to the beginning")
-            .accessibilityLabel("Reset to the beginning")
+            resetButton
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 6)

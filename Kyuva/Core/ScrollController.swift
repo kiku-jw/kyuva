@@ -165,10 +165,10 @@ class ScrollController: ObservableObject {
     }
     
     func reset() {
+        // Reset is an explicit pause; leaving a hovered prompt must not resume it.
+        manualPause()
         scrollOffset = 0
-        isPaused = true
         highlightedLine = nil
-        autoResumeWorkItem?.cancel()
     }
     
     func adjustSpeed(delta: Double) {
