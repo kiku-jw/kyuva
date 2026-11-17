@@ -2,14 +2,48 @@ import AppKit
 import SwiftUI
 
 class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+#if DEBUG
+    override init() {
+        _ = try! QAAutomationConfiguration.current()
+        super.init()
+    }
+#endif
     
     private var statusItem: NSStatusItem?
     private var overlayWindowController: OverlayWindowController?
     private var settingsWindow: NSWindow?
     private var onboardingWindow: NSWindow?
     private var shouldShowOverlayAfterOnboarding = false
+#if DEBUG
+    private var automationSocket: QAAutomationSocket?
+#endif
     
     func applicationDidFinishLaunching(_ notification: Notification) {
+#if DEBUG
+        do {
+            if let configuration = try QAAutomationConfiguration.current() {
+                // This explicitly isolated QA mode never installs global hotkeys,
+                // opens onboarding or takes the user's keyboard focus.
+                overlayWindowController = OverlayWindowController(interactive: false)
+                let socket = QAAutomationSocket(
+                    configuration: configuration,
+                    state: { [weak self] in self?.automationState() ?? [:] },
+                    command: { [weak self] command in
+                        guard let self else {
+                            throw QAAutomationHTTPError(status: 503, message: "Application unavailable")
+                        }
+                        return try self.automationCommand(command)
+                    }
+                )
+                try socket.start()
+                automationSocket = socket
+                return
+            }
+        } catch {
+            // An invalid explicit QA configuration must not fall back to a real library.
+            preconditionFailure("Refusing unsafe or unavailable QA automation configuration")
+        }
+#endif
         let completed = UserDefaults.standard.bool(forKey: "hasCompletedOnboarding")
         print("[Kyuva] Starting up, hasCompletedOnboarding: \(completed)")
         
@@ -164,6 +198,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         switch ScriptManager.shared.flushPendingSave() {
         case .success:
+#if DEBUG
+            automationSocket?.stop()
+#endif
             return .terminateNow
         case .failure:
             let alert = NSAlert()
@@ -176,6 +213,102 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return alert.runModal() == .alertSecondButtonReturn ? .terminateNow : .terminateCancel
         }
     }
+
+#if DEBUG
+    private func automationState() -> [String: Any] {
+        let manager = ScriptManager.shared
+        let saveState: String
+        switch manager.saveState {
+        case .pending: saveState = "pending"
+        case .saving: saveState = "saving"
+        case .saved: saveState = "saved"
+        case .failed: saveState = "failed"
+        }
+        let snapshot: [String: Any] = [
+            "schema_version": 1,
+            "bundle_id": Bundle.main.bundleIdentifier ?? "",
+            "isolated_qa": true,
+            "state_limited": false,
+            "save_state": saveState,
+            "load_error": manager.loadError != nil,
+            "selected_script_id": manager.selectedScriptId?.uuidString as Any? ?? NSNull(),
+            "scripts": manager.scripts.map { ["id": $0.id.uuidString, "name": $0.name, "text": $0.content] },
+            "prompt": overlayWindowController?.automationState ?? [:]
+        ]
+        if let encoded = try? JSONSerialization.data(withJSONObject: snapshot), encoded.count <= 512 * 1024 {
+            return snapshot
+        }
+        // Large QA libraries stay intact and commands still return bounded acknowledgments.
+        return ["schema_version": 1, "isolated_qa": true, "state_limited": true,
+                "script_count": manager.scripts.count, "save_state": saveState,
+                "load_error": manager.loadError != nil]
+    }
+
+    private func automationCommand(_ request: [String: Any]) throws -> QAAutomationResponse {
+        guard let command = request["command"] as? String else {
+            throw QAAutomationHTTPError(status: 400, message: "A command is required")
+        }
+        let manager = ScriptManager.shared
+        guard manager.loadError == nil else {
+            throw QAAutomationHTTPError(status: 409, message: "Library could not be opened")
+        }
+        let allowed: Set<String>
+        switch command {
+        case "createScript": allowed = ["command", "name", "text"]
+        case "selectScript": allowed = ["command", "id"]
+        default: allowed = ["command"]
+        }
+        guard Set(request.keys) == allowed else {
+            throw QAAutomationHTTPError(status: 400, message: "Unexpected or missing arguments")
+        }
+        switch command {
+        case "createScript":
+            guard let name = request["name"] as? String, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  name.utf8.count <= 512, let text = request["text"] as? String,
+                  !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, text.utf8.count <= 60_000 else {
+                throw QAAutomationHTTPError(status: 400, message: "Invalid script")
+            }
+            manager.createNewScript()
+            guard let id = manager.selectedScriptId else {
+                throw QAAutomationHTTPError(status: 500, message: "Script creation failed")
+            }
+            manager.updateScriptName(id, name: name)
+            manager.updateScriptContent(id, content: text)
+        case "selectScript":
+            guard let raw = request["id"] as? String, let id = UUID(uuidString: raw),
+                  manager.scripts.contains(where: { $0.id == id }) else {
+                throw QAAutomationHTTPError(status: 404, message: "Script not found")
+            }
+            manager.selectedScriptId = id
+        case "save", "quit":
+            guard case .success = manager.flushPendingSave() else {
+                throw QAAutomationHTTPError(status: 409, message: "Script was not saved")
+            }
+            if command == "quit" {
+                return QAAutomationResponse(json: ["quitting": true], afterReply: {
+                    NSApplication.shared.terminate(nil)
+                })
+            }
+        case "showPrompt":
+            overlayWindowController?.showOverlay(activate: false)
+        case "hidePrompt":
+            hideOverlay()
+        case "start":
+            guard overlayWindowController?.isOverlayVisible == true else {
+                throw QAAutomationHTTPError(status: 409, message: "Open the prompt first")
+            }
+            overlayWindowController?.automationStart()
+        case "pause":
+            overlayWindowController?.automationPause()
+        default:
+            throw QAAutomationHTTPError(status: 400, message: "Unknown command")
+        }
+        return QAAutomationResponse(json: [
+            "accepted": true, "command": command,
+            "selected_script_id": manager.selectedScriptId?.uuidString as Any? ?? NSNull()
+        ])
+    }
+#endif
 
     func windowWillClose(_ notification: Notification) {
         guard let closingWindow = notification.object as? NSWindow else { return }

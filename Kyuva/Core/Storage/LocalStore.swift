@@ -30,6 +30,9 @@ class LocalStore {
         directoryURL: URL? = nil,
         saveQueue: DispatchQueue? = nil
     ) {
+#if DEBUG && os(macOS)
+        _ = try! QAAutomationConfiguration.current()
+#endif
         self.saveQueue = saveQueue ?? DispatchQueue(label: "com.kyuva.storage", qos: .background)
 
 #if DEBUG
@@ -93,6 +96,10 @@ class LocalStore {
     /// Read directly rather than synchronizing with the write queue: callers
     /// may inspect a library while an injected save queue is suspended.
     private func readLibrary() throws -> (scripts: [Script], primaryData: Data?) {
+#if DEBUG && os(macOS)
+        // Recheck both file leaves before reads/recovery and queued writes.
+        _ = try QAAutomationConfiguration.current()
+#endif
         try FileManager.default.createDirectory(
             at: scriptsURL.deletingLastPathComponent(), withIntermediateDirectories: true
         )

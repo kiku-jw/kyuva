@@ -34,7 +34,7 @@ class OverlayWindowController: NSWindowController {
     private var cancellables = Set<AnyCancellable>()
     private var dragTracker = WindowDragTracker()
     
-    convenience init() {
+    convenience init(interactive: Bool = true) {
         // Get screen with notch (main screen on MacBooks with notch)
         let screen = NSScreen.main ?? NSScreen.screens.first!
         let screenFrame = screen.frame
@@ -58,8 +58,9 @@ class OverlayWindowController: NSWindowController {
         self.init(window: window)
         
         setupWindow(window)
+        window.ignoresMouseEvents = !interactive
         setupContent()
-        setupManagers()
+        if interactive { setupManagers() }
     }
     
     private func setupWindow(_ window: NSWindow) {
@@ -255,13 +256,37 @@ class OverlayWindowController: NSWindowController {
         }
     }
 
-    func showOverlay() {
-        window?.makeKeyAndOrderFront(nil)
+    func showOverlay(activate: Bool = true) {
+        if activate {
+            window?.makeKeyAndOrderFront(nil)
+        } else {
+            NSApplication.shared.unhideWithoutActivation()
+            window?.orderFront(nil)
+        }
     }
 
     func hideOverlay() {
         window?.orderOut(nil)
     }
+
+#if DEBUG
+    var automationState: [String: Any] {
+        [
+            "visible": isOverlayVisible,
+            "content_attached": window?.contentView != nil,
+            "paused": scrollController?.isPaused ?? true,
+            "offset": Double(scrollController?.scrollOffset ?? 0),
+            "maximum_offset": Double(scrollController?.maximumOffset ?? 0),
+            "hovering": isHovering,
+            "accepts_mouse_events": window?.ignoresMouseEvents == false,
+            "is_key_window": window?.isKeyWindow == true,
+            "application_active": NSApplication.shared.isActive
+        ]
+    }
+
+    func automationStart() { scrollController?.resume() }
+    func automationPause() { scrollController?.manualPause() }
+#endif
 
     var isOverlayVisible: Bool {
         window?.isVisible ?? false

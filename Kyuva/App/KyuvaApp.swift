@@ -2,6 +2,10 @@ import SwiftUI
 
 @main
 struct KyuvaApp: App {
+#if DEBUG
+    // Validate explicit QA routing before SwiftUI can create any Settings model.
+    private let automationConfiguration = try! QAAutomationConfiguration.current()
+#endif
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
     var body: some Scene {

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		001 /* KyuvaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101 /* KyuvaApp.swift */; };
 		002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 102 /* AppDelegate.swift */; };
+		A10000000000000000000001 /* QAAutomationSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* QAAutomationSocket.swift */; };
 		003 /* OverlayWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 103 /* OverlayWindowController.swift */; };
 		004 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 104 /* SettingsView.swift */; };
 		005 /* ScriptManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 105 /* ScriptManager.swift */; };
@@ -81,6 +82,7 @@
 		100 /* Kyuva.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Kyuva.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		101 /* KyuvaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KyuvaApp.swift; sourceTree = "<group>"; };
 		102 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		A10000000000000000000002 /* QAAutomationSocket.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QAAutomationSocket.swift; sourceTree = "<group>"; };
 		103 /* OverlayWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayWindowController.swift; sourceTree = "<group>"; };
 		104 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		105 /* ScriptManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScriptManager.swift; sourceTree = "<group>"; };
@@ -176,6 +178,7 @@
 				148 /* ProEntitlementStore.swift */,
 				149 /* ReviewPromptPolicy.swift */,
 				105 /* ScriptManager.swift */,
+				A10000000000000000000002 /* QAAutomationSocket.swift */,
 				106 /* ScrollController.swift */,
 				126 /* RemoteControlProtocol.swift */,
 				145 /* ScriptTextFile.swift */,
@@ -405,6 +408,7 @@
 			files = (
 				001 /* KyuvaApp.swift in Sources */,
 				002 /* AppDelegate.swift in Sources */,
+				A10000000000000000000001 /* QAAutomationSocket.swift in Sources */,
 				003 /* OverlayWindowController.swift in Sources */,
 				004 /* SettingsView.swift in Sources */,
 				005 /* ScriptManager.swift in Sources */,
