@@ -38,6 +38,7 @@ final class PhoneWatchSession: NSObject, WCSessionDelegate {
     }
 
     func publishSnapshot() {
+        guard WCSession.isSupported() else { return }
         let session = WCSession.default
         guard session.activationState == .activated else { return }
         try? session.updateApplicationContext(snapshot.message)
