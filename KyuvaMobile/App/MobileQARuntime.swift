@@ -38,6 +38,11 @@ final class MobileRuntime {
     var commerceEnabled: Bool { !isQA && ProEntitlementStore.commerceEnabled }
     var allowsVoiceFollow: Bool { !isQA }
 
+    #if DEBUG
+    /// Readback only: the installed QA view owns this controller's lifetime.
+    private(set) weak var qaScrollController: ScrollController?
+    #endif
+
     enum ConfigurationError: Error {
         case invalidIdentity
         case unsafeStorage
@@ -126,7 +131,11 @@ final class MobileRuntime {
     #endif
 
     func makeScrollController(startTimer: Bool = true) -> ScrollController {
-        ScrollController(startTimer: startTimer, userDefaults: userDefaults)
+        let controller = ScrollController(startTimer: startTimer, userDefaults: userDefaults)
+        #if DEBUG
+        if isQA { qaScrollController = controller }
+        #endif
+        return controller
     }
 
     func makeSpeechRecognizer() -> OnDeviceSpeechRecognizer {

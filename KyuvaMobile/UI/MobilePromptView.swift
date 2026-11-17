@@ -229,9 +229,11 @@ struct MobilePromptView: View {
                     .font(.caption)
                     .foregroundStyle(promptAccent.opacity(0.9))
 
-                Rectangle()
-                    .fill(promptAccent.opacity(0.3))
-                    .frame(height: 1)
+                Spacer()
+
+                Image(systemName: "arrowtriangle.left.fill")
+                    .font(.caption)
+                    .foregroundStyle(promptAccent.opacity(0.9))
             }
             .padding(.horizontal, 12)
             .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
