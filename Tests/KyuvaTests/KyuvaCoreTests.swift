@@ -112,6 +112,35 @@ final class ScriptTests: XCTestCase {
 }
 
 final class LocalStoreTests: XCTestCase {
+    func testRevokedStorageAccessPreservesFilesAtQueuedWriteTime() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("KyuvaRevokedQA-\(UUID())")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let primary = directory.appendingPathComponent("scripts.json")
+        let backup = directory.appendingPathComponent("scripts.backup.json")
+        let original = try JSONEncoder().encode([Script(name: "Generated original", content: "Preserve this fixture.")])
+        try original.write(to: primary)
+        try original.write(to: backup)
+        enum AccessError: Error { case revoked }
+        // Change the gate only while the serial queue is suspended or fully drained.
+        var allowed = true
+        let queue = DispatchQueue(label: "kyuva.test.revoked-access")
+        let store = LocalStore(directoryURL: directory, saveQueue: queue, validateAccess: {
+            guard allowed else { throw AccessError.revoked }
+        })
+        XCTAssertEqual(try store.loadScripts().first?.name, "Generated original")
+        queue.suspend()
+        store.saveScripts([Script(name: "Generated replacement", content: "Must not overwrite.")])
+        allowed = false
+        queue.resume()
+        XCTAssertThrowsError(try store.waitForPendingWrites().get())
+        XCTAssertThrowsError(try store.loadScripts())
+        XCTAssertEqual(try Data(contentsOf: primary), original)
+        XCTAssertEqual(try Data(contentsOf: backup), original)
+        allowed = true
+        XCTAssertEqual(try store.loadScripts().first?.name, "Generated original")
+    }
+
     func testScriptsRoundTripThroughInjectedDirectory() throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("KyuvaTests-\(UUID().uuidString)", isDirectory: true)

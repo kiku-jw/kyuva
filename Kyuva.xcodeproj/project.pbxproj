@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A20000000000000000000001 /* MobileQARuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* MobileQARuntime.swift */; };
 		001 /* KyuvaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 101 /* KyuvaApp.swift */; };
 		002 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 102 /* AppDelegate.swift */; };
 		A10000000000000000000001 /* QAAutomationSocket.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* QAAutomationSocket.swift */; };
@@ -79,6 +80,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		A20000000000000000000002 /* MobileQARuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileQARuntime.swift; sourceTree = "<group>"; };
 		100 /* Kyuva.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Kyuva.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		101 /* KyuvaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KyuvaApp.swift; sourceTree = "<group>"; };
 		102 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -232,6 +234,7 @@
 			isa = PBXGroup;
 			children = (
 				130 /* KyuvaMobileApp.swift */,
+				A20000000000000000000002 /* MobileQARuntime.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -431,6 +434,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				030 /* KyuvaMobileApp.swift in Sources */,
+				A20000000000000000000001 /* MobileQARuntime.swift in Sources */,
 				031 /* PhoneWatchSession.swift in Sources */,
 				032 /* MobileEditorView.swift in Sources */,
 				033 /* MobilePromptSettingsView.swift in Sources */,

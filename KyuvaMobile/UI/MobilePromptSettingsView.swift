@@ -2,17 +2,32 @@ import SwiftUI
 
 struct MobilePromptSettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @ObservedObject private var proStore = ProEntitlementStore.shared
-    @AppStorage("fontSize") private var fontSize = 34.0
-    @AppStorage("textAlignment") private var textAlignment = 1
-    @AppStorage("fontFamily") private var fontFamily = 0
-    @AppStorage("mirrorText") private var mirrorText = false
-    @AppStorage("stageDirectionStyle") private var stageDirectionStyle = 1
-    @AppStorage(ScrollController.paceModeDefaultsKey) private var paceMode = ScrollPaceMode.fixedSpeed.rawValue
-    @AppStorage(ScrollController.speedDefaultsKey) private var fixedSpeed = 50.0
-    @AppStorage(ScrollController.wordsPerMinuteDefaultsKey) private var wordsPerMinute = 150.0
-    @AppStorage(ScrollController.targetDurationDefaultsKey) private var targetDuration = 300.0
+    let runtime: MobileRuntime
+    @ObservedObject private var proStore: ProEntitlementStore
+    @AppStorage private var fontSize: Double
+    @AppStorage private var textAlignment: Int
+    @AppStorage private var fontFamily: Int
+    @AppStorage private var mirrorText: Bool
+    @AppStorage private var stageDirectionStyle: Int
+    @AppStorage private var paceMode: Int
+    @AppStorage private var fixedSpeed: Double
+    @AppStorage private var wordsPerMinute: Double
+    @AppStorage private var targetDuration: Double
     @State private var proMessage: String?
+
+    init(runtime: MobileRuntime = .current) {
+        self.runtime = runtime
+        _proStore = ObservedObject(wrappedValue: runtime.proStore)
+        _fontSize = AppStorage(wrappedValue: 34.0, "fontSize", store: runtime.userDefaults)
+        _textAlignment = AppStorage(wrappedValue: 1, "textAlignment", store: runtime.userDefaults)
+        _fontFamily = AppStorage(wrappedValue: 0, "fontFamily", store: runtime.userDefaults)
+        _mirrorText = AppStorage(wrappedValue: false, "mirrorText", store: runtime.userDefaults)
+        _stageDirectionStyle = AppStorage(wrappedValue: 1, "stageDirectionStyle", store: runtime.userDefaults)
+        _paceMode = AppStorage(wrappedValue: ScrollPaceMode.fixedSpeed.rawValue, ScrollController.paceModeDefaultsKey, store: runtime.userDefaults)
+        _fixedSpeed = AppStorage(wrappedValue: 50.0, ScrollController.speedDefaultsKey, store: runtime.userDefaults)
+        _wordsPerMinute = AppStorage(wrappedValue: 150.0, ScrollController.wordsPerMinuteDefaultsKey, store: runtime.userDefaults)
+        _targetDuration = AppStorage(wrappedValue: 300.0, ScrollController.targetDurationDefaultsKey, store: runtime.userDefaults)
+    }
 
     var body: some View {
         Form {
@@ -73,17 +88,17 @@ struct MobilePromptSettingsView: View {
                 }
             }
 
-            Section(ProEntitlementStore.commerceEnabled ? "Kyuva Pro" : "Voice Follow") {
+            Section(runtime.commerceEnabled ? "Kyuva Pro" : "Voice Follow") {
                 Label(
                     proAccessLabel,
-                    systemImage: ProEntitlementStore.commerceEnabled ? "sparkles" : "waveform"
+                    systemImage: runtime.commerceEnabled ? "sparkles" : "waveform"
                 )
 
                 Text(proDescription)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
-                if ProEntitlementStore.commerceEnabled {
+                if runtime.commerceEnabled {
                     if proStore.accessState == .locked {
                         Button("Start 7-Day Trial") {
                             proStore.startTrial()
@@ -137,6 +152,7 @@ struct MobilePromptSettingsView: View {
                     destination: URL(string: "mailto:support@kikuai.dev")!
                 )
             }
+            .disabled(runtime.isQA)
         }
         .navigationTitle("Prompt Settings")
         .navigationBarTitleDisplayMode(.inline)
@@ -176,7 +192,7 @@ struct MobilePromptSettingsView: View {
     }
 
     private var proDescription: String {
-        if ProEntitlementStore.commerceEnabled {
+        if runtime.commerceEnabled {
             return "Voice Follow is the first Pro feature. Buy once to unlock it on Mac and iPhone, or try it free for seven days."
         }
         return "Kyuva follows your spoken position using on-device speech recognition. Your script and speech stay on this device."

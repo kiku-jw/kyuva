@@ -11,6 +11,7 @@ private let mobileInteractiveTint = Color(uiColor: UIColor { traits in
 })
 
 struct MobileEditorView: View {
+    let runtime: MobileRuntime
     @EnvironmentObject private var scriptManager: ScriptManager
 
     @State private var path: [UUID] = []
@@ -52,6 +53,7 @@ struct MobileEditorView: View {
                             ) {
                                 Label("Share Text File", systemImage: "square.and.arrow.up")
                             }
+                            .disabled(runtime.isQA)
 
                             Button(role: .destructive) {
                                 scriptToDelete = script.id
@@ -93,7 +95,7 @@ struct MobileEditorView: View {
                         Image(systemName: "square.and.arrow.down")
                     }
                     .accessibilityLabel("Import text file")
-                    .disabled(scriptManager.loadError != nil)
+                    .disabled(runtime.isQA || scriptManager.loadError != nil)
 
                     Button {
                         createScript()
@@ -105,7 +107,7 @@ struct MobileEditorView: View {
                 }
             }
             .navigationDestination(for: UUID.self) { scriptId in
-                MobileScriptEditorView(scriptId: scriptId)
+                MobileScriptEditorView(scriptId: scriptId, runtime: runtime)
             }
         }
         .tint(mobileInteractiveTint)
@@ -114,7 +116,7 @@ struct MobileEditorView: View {
             allowedContentTypes: [.plainText, .text],
             allowsMultipleSelection: false
         ) { result in
-            guard scriptManager.loadError == nil else { return }
+            guard !runtime.isQA, scriptManager.loadError == nil else { return }
             do {
                 let imported = try ScriptTextTransfer.readImport(from: result.get())
                 let script = scriptManager.importScript(
@@ -259,6 +261,7 @@ private struct MobileScriptRow: View {
 
 private struct MobileScriptEditorView: View {
     let scriptId: UUID
+    let runtime: MobileRuntime
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -348,6 +351,7 @@ private struct MobileScriptEditorView: View {
                         ) {
                             Label("Share Text File", systemImage: "square.and.arrow.up")
                         }
+                        .disabled(runtime.isQA)
                     }
 
                     Divider()
@@ -366,7 +370,7 @@ private struct MobileScriptEditorView: View {
         }
         .sheet(isPresented: $isShowingSettings) {
             NavigationStack {
-                MobilePromptSettingsView()
+                MobilePromptSettingsView(runtime: runtime)
             }
             .presentationDetents(
                 dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large]
@@ -374,14 +378,14 @@ private struct MobileScriptEditorView: View {
         }
         .fullScreenCover(isPresented: $isPresenting) {
             if let script = currentScript {
-                MobilePromptView(script: script)
+                MobilePromptView(script: script, runtime: runtime)
             }
         }
         .onAppear {
             scriptManager.selectedScriptId = scriptId
         }
         .onChange(of: isPresenting) { _, isPresented in
-            guard !isPresented, ReviewPromptPolicy().claimPendingRequest() else { return }
+            guard !runtime.isQA, !isPresented, ReviewPromptPolicy().claimPendingRequest() else { return }
 
             Task {
                 try? await Task.sleep(nanoseconds: 2_000_000_000)

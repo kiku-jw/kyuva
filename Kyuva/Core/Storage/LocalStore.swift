@@ -6,6 +6,7 @@ class LocalStore {
     private let scriptsURL: URL
     private let backupURL: URL
     private let saveQueue: DispatchQueue
+    private let validateAccess: (() throws -> Void)?
     // Accessed only on saveQueue, including synchronous result readback.
     private var lastSaveResult: Result<Void, Error> = .success(())
     
@@ -28,12 +29,14 @@ class LocalStore {
 
     init(
         directoryURL: URL? = nil,
-        saveQueue: DispatchQueue? = nil
+        saveQueue: DispatchQueue? = nil,
+        validateAccess: (() throws -> Void)? = nil
     ) {
 #if DEBUG && os(macOS)
         _ = try! QAAutomationConfiguration.current()
 #endif
         self.saveQueue = saveQueue ?? DispatchQueue(label: "com.kyuva.storage", qos: .background)
+        self.validateAccess = validateAccess
 
 #if DEBUG
         let qaDirectory: URL?
@@ -96,6 +99,7 @@ class LocalStore {
     /// Read directly rather than synchronizing with the write queue: callers
     /// may inspect a library while an injected save queue is suspended.
     private func readLibrary() throws -> (scripts: [Script], primaryData: Data?) {
+        try validateAccess?()
 #if DEBUG && os(macOS)
         // Recheck both file leaves before reads/recovery and queued writes.
         _ = try QAAutomationConfiguration.current()

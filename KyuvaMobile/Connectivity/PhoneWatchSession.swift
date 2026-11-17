@@ -13,6 +13,7 @@ final class PhoneWatchSession: NSObject, WCSessionDelegate {
     }
 
     func activate() {
+        guard !MobileRuntime.isQARequested else { return }
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
         session.delegate = self
@@ -24,6 +25,7 @@ final class PhoneWatchSession: NSObject, WCSessionDelegate {
         scriptTitle: String,
         commandHandler: ((RemoteCommand) -> Bool)? = nil
     ) {
+        guard !MobileRuntime.isQARequested else { return }
         self.scrollController = scrollController
         self.scriptTitle = scriptTitle
         self.commandHandler = commandHandler
@@ -31,6 +33,7 @@ final class PhoneWatchSession: NSObject, WCSessionDelegate {
     }
 
     func unbind(scrollController: ScrollController) {
+        guard !MobileRuntime.isQARequested else { return }
         guard self.scrollController === scrollController else { return }
         self.scrollController = nil
         commandHandler = nil
@@ -38,6 +41,7 @@ final class PhoneWatchSession: NSObject, WCSessionDelegate {
     }
 
     func publishSnapshot() {
+        guard !MobileRuntime.isQARequested else { return }
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
         guard session.activationState == .activated else { return }
@@ -118,6 +122,7 @@ final class PhoneWatchSession: NSObject, WCSessionDelegate {
     func sessionDidBecomeInactive(_ session: WCSession) { }
 
     func sessionDidDeactivate(_ session: WCSession) {
+        guard !MobileRuntime.isQARequested else { return }
         session.activate()
     }
 

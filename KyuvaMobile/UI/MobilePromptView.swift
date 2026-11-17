@@ -16,20 +16,34 @@ struct MobilePromptView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @StateObject private var scrollController = ScrollController()
-    @StateObject private var speechRecognizer = OnDeviceSpeechRecognizer()
-    @ObservedObject private var proStore = ProEntitlementStore.shared
+    @StateObject private var scrollController: ScrollController
+    @StateObject private var speechRecognizer: OnDeviceSpeechRecognizer
+    let runtime: MobileRuntime
+    @ObservedObject private var proStore: ProEntitlementStore
     @State private var isShowingSettings = false
     @State private var contentHeight: CGFloat = 0
     @State private var viewportHeight: CGFloat = 0
     @State private var voiceMatcher: VoicePositionMatcher?
     @State private var hasRecordedCurrentCompletion = false
 
-    @AppStorage("fontSize") private var fontSize = 34.0
-    @AppStorage("textAlignment") private var textAlignment = 1
-    @AppStorage("fontFamily") private var fontFamily = 0
-    @AppStorage("mirrorText") private var mirrorText = false
-    @AppStorage("stageDirectionStyle") private var stageDirectionStyle = 1
+    @AppStorage private var fontSize: Double
+    @AppStorage private var textAlignment: Int
+    @AppStorage private var fontFamily: Int
+    @AppStorage private var mirrorText: Bool
+    @AppStorage private var stageDirectionStyle: Int
+
+    init(script: Script, runtime: MobileRuntime = .current) {
+        self.script = script
+        self.runtime = runtime
+        _proStore = ObservedObject(wrappedValue: runtime.proStore)
+        _scrollController = StateObject(wrappedValue: runtime.makeScrollController())
+        _speechRecognizer = StateObject(wrappedValue: runtime.makeSpeechRecognizer())
+        _fontSize = AppStorage(wrappedValue: 34.0, "fontSize", store: runtime.userDefaults)
+        _textAlignment = AppStorage(wrappedValue: 1, "textAlignment", store: runtime.userDefaults)
+        _fontFamily = AppStorage(wrappedValue: 0, "fontFamily", store: runtime.userDefaults)
+        _mirrorText = AppStorage(wrappedValue: false, "mirrorText", store: runtime.userDefaults)
+        _stageDirectionStyle = AppStorage(wrappedValue: 1, "stageDirectionStyle", store: runtime.userDefaults)
+    }
 
     private let promptAccent = Color(red: 0.79, green: 0.81, blue: 1.0)
 
@@ -112,7 +126,7 @@ struct MobilePromptView: View {
         .persistentSystemOverlays(.hidden)
         .sheet(isPresented: $isShowingSettings) {
             NavigationStack {
-                MobilePromptSettingsView()
+                MobilePromptSettingsView(runtime: runtime)
             }
             .presentationDetents(
                 dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large]
@@ -130,32 +144,34 @@ struct MobilePromptView: View {
             if speechRecognizer.state.isEngaged && !isPaused {
                 scrollController.pause()
             }
-            PhoneWatchSession.shared.publishSnapshot()
+            if !runtime.isQA { PhoneWatchSession.shared.publishSnapshot() }
         }
         .onChange(of: scrollController.paceControlLabel) {
-            PhoneWatchSession.shared.publishSnapshot()
+            if !runtime.isQA { PhoneWatchSession.shared.publishSnapshot() }
         }
         .onChange(of: Int(scrollController.progress * 100)) { _, progressPercent in
-            PhoneWatchSession.shared.publishSnapshot()
+            if !runtime.isQA { PhoneWatchSession.shared.publishSnapshot() }
             recordCompletedPromptIfNeeded(progressPercent: progressPercent)
         }
         .onAppear {
-            UIApplication.shared.isIdleTimerDisabled = true
+            if !runtime.isQA { UIApplication.shared.isIdleTimerDisabled = true }
             hasRecordedCurrentCompletion = false
             scrollController.reset()
             scrollController.applyPersistedScrollSpeed()
-            PhoneWatchSession.shared.bind(
-                scrollController: scrollController,
-                scriptTitle: script.name,
-                commandHandler: handleWatchCommand
-            )
+            if !runtime.isQA {
+                PhoneWatchSession.shared.bind(
+                    scrollController: scrollController,
+                    scriptTitle: script.name,
+                    commandHandler: handleWatchCommand
+                )
+            }
         }
         .onDisappear {
-            UIApplication.shared.isIdleTimerDisabled = false
+            if !runtime.isQA { UIApplication.shared.isIdleTimerDisabled = false }
             speechRecognizer.stop()
             voiceMatcher = nil
             scrollController.pause()
-            PhoneWatchSession.shared.unbind(scrollController: scrollController)
+            if !runtime.isQA { PhoneWatchSession.shared.unbind(scrollController: scrollController) }
         }
         .onChange(of: speechRecognizer.latestTranscript) { _, transcript in
             consumeVoiceTranscript(transcript)
@@ -259,7 +275,7 @@ struct MobilePromptView: View {
                     .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.bordered)
-                .disabled(speechRecognizer.state == .requestingPermission)
+                .disabled(!runtime.allowsVoiceFollow || speechRecognizer.state == .requestingPermission)
                 .accessibilityLabel(
                     speechRecognizer.state.isListening
                         ? "Stop Voice Follow"
@@ -446,6 +462,7 @@ struct MobilePromptView: View {
     }
 
     private func toggleVoiceFollow() {
+        guard runtime.allowsVoiceFollow else { return }
         if speechRecognizer.state.isEngaged {
             speechRecognizer.stop()
             voiceMatcher = nil
@@ -486,7 +503,7 @@ struct MobilePromptView: View {
         scrollController.goToOffset(
             CGFloat(match.progress) * scrollController.maximumOffset
         )
-        PhoneWatchSession.shared.publishSnapshot()
+        if !runtime.isQA { PhoneWatchSession.shared.publishSnapshot() }
     }
 
     private var voiceStartTokenIndex: Int {
@@ -525,7 +542,7 @@ struct MobilePromptView: View {
     }
 
     private func recordCompletedPromptIfNeeded(progressPercent: Int) {
-        guard progressPercent >= 98, !hasRecordedCurrentCompletion else { return }
+        guard !runtime.isQA, progressPercent >= 98, !hasRecordedCurrentCompletion else { return }
         hasRecordedCurrentCompletion = true
         ReviewPromptPolicy().recordSuccessfulPrompt()
     }

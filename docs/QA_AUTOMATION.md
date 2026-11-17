@@ -1,5 +1,8 @@
 # Local QA API (macOS Debug only)
 
+The separate mobile Debug composition is described at the end of this document;
+it does not open a socket or add a network API.
+
 Use this to exercise the real script store and scroll controller without moving
 the user's mouse, sending keyboard events, taking focus, or opening their library.
 This is an opt-in test interface, not a public service. Release builds omit the
@@ -108,3 +111,42 @@ Keep the generated QA library if retaining restart evidence.
 This route proves model, native-process and persistence behavior. It does not
 prove text readability, editor typing, speech recognition, physical-device
 behavior, Store upgrades, restored personal data, demand or paid readiness.
+
+
+## Mobile Debug composition
+
+`KyuvaMobileApp` selects `MobileRuntime.current` before any normal script store,
+preferences, purchase store or Watch activation. In a dedicated QA app/container,
+set `KYUVA_MOBILE_QA_ID` to a complete UUID. A malformed or empty value terminates
+setup; no production library fallback occurs. Hosted XCTest automatically uses a
+fresh ID. Release ignores the selector and contains no mobile QA runtime branch.
+
+The UUID maps to `com.kikuai.kyuva.mobile.qa.<lowercaseUUID>` preferences and
+`Application Support/KyuvaMobileQA/<lowercaseUUID>/scripts` inside the current
+app's storage. Reuse that ID only for the same generated fixture and sequential
+restart checks. QA getters read only their own persistent domain. Storage rejects
+symlinked/non-directory components and primary/backup leaves that are not regular
+single-link files. Access is revalidated before reads and queued writes. Missing
+or unsafe QA storage never becomes permission to open a normal library.
+
+The actual runtime exposes `scriptManager`, `userDefaults`,
+`makeScrollController(startTimer:)` and `makeSpeechRecognizer()` for native checks
+through existing product methods. QA commerce stays disabled even when the Debug
+scheme supplies `KYUVA_LOCAL_STOREKIT_TESTING=1`. Speech allocates no audio engine
+and start/stop/deinit do not request capture or alter an audio session. Watch is
+not activated or bound. Mobile views receive the same runtime and explicit
+AppStorage store; import/share, review prompts and external actions are disabled.
+No global Codex/macOS setting or new provider permission is needed.
+
+Use generated text, a new UUID and an isolated simulator/container. Check an
+edit/save, explicit script selection, pause/resume, normalized progress after
+metric changes, then reopen the same script in a second process. Retain original
+primary/backup bytes when testing rejected file links or queued writes. Export
+evidence before removing only the known UUID directory and preferences domain.
+`swift test --scratch-path <task-build-directory> --disable-sandbox` covers shared
+core regressions, including revoked access at queued-write time. It does not run
+the iOS factory or native views; those require an iOS native runner.
+
+Programmatic model/scroll metrics are not native layout, on-device speech,
+Watch communication, iPad support, Store delivery or paid-usefulness acceptance.
+The Mac socket API and its sandbox rules above remain unchanged.

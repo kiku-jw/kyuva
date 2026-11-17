@@ -37,7 +37,13 @@ final class OnDeviceSpeechRecognizer: ObservableObject {
     @Published private(set) var state: OnDeviceSpeechState = .idle
     @Published private(set) var latestTranscript = ""
 
-    private let audioEngine = AVAudioEngine()
+    private let isEnabled: Bool
+    private let audioEngine: AVAudioEngine?
+
+    init(isEnabled: Bool = true) {
+        self.isEnabled = isEnabled
+        audioEngine = isEnabled ? AVAudioEngine() : nil
+    }
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private var speechRecognizer: SFSpeechRecognizer?
@@ -49,21 +55,21 @@ final class OnDeviceSpeechRecognizer: ObservableObject {
     deinit {
         recognitionTask?.cancel()
         restartTask?.cancel()
-        if hasInstalledInputTap {
-            audioEngine.inputNode.removeTap(onBus: 0)
-        }
-        if audioEngine.isRunning {
-            audioEngine.stop()
+        if let audioEngine {
+            if hasInstalledInputTap { audioEngine.inputNode.removeTap(onBus: 0) }
+            if audioEngine.isRunning { audioEngine.stop() }
         }
         #if os(iOS)
-        try? AVAudioSession.sharedInstance().setActive(
-            false,
-            options: .notifyOthersOnDeactivation
-        )
+        if isEnabled {
+            try? AVAudioSession.sharedInstance().setActive(
+                false, options: .notifyOthersOnDeactivation
+            )
+        }
         #endif
     }
 
     func start(scriptText: String) async {
+        guard isEnabled else { return }
         stop()
         state = .requestingPermission
         let startGeneration = generation
@@ -154,7 +160,7 @@ final class OnDeviceSpeechRecognizer: ObservableObject {
     }
 
     private func startRecognitionSession(generation expectedGeneration: Int) {
-        guard shouldListen,
+        guard let audioEngine, isEnabled, shouldListen,
               generation == expectedGeneration,
               let speechRecognizer else { return }
 
@@ -233,6 +239,7 @@ final class OnDeviceSpeechRecognizer: ObservableObject {
     }
 
     private func stopRecognitionSession() {
+        guard isEnabled, let audioEngine else { return }
         recognitionRequest?.endAudio()
         recognitionTask?.cancel()
         recognitionRequest = nil
@@ -248,10 +255,11 @@ final class OnDeviceSpeechRecognizer: ObservableObject {
         audioEngine.reset()
 
         #if os(iOS)
-        try? AVAudioSession.sharedInstance().setActive(
-            false,
-            options: .notifyOthersOnDeactivation
-        )
+        if isEnabled {
+            try? AVAudioSession.sharedInstance().setActive(
+                false, options: .notifyOthersOnDeactivation
+            )
+        }
         #endif
     }
 

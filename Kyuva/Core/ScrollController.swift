@@ -91,7 +91,7 @@ class ScrollController: ObservableObject {
         RunLoop.current.add(scrollTimer!, forMode: .common)
     }
     
-    @AppStorage("endBehavior") private var endBehavior: Int = 0
+    private var endBehavior: Int { userDefaults.integer(forKey: "endBehavior") }
     var onEndReached: (() -> Void)?
 
     private func tick() {
