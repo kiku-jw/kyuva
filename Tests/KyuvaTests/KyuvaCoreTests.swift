@@ -566,12 +566,51 @@ final class ScriptDeliveryScenarioTests: XCTestCase {
         XCTAssertEqual(try LocalStore(directoryURL: directory).loadScripts().last?.id, imported.id)
     }
 
+    func testUnchangedSavePreservesPreviousScriptVersion() throws {
+        let directory = try fixtureDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = LocalStore(directoryURL: directory)
+        let original = Script(name: "Rehearsal", content: "First recorded draft")
+        var edited = original
+        edited.content = "Corrected cue — Cafe\u{301}"
+        edited.reindex()
+        store.saveScripts([original])
+        try store.waitForPendingWrites().get()
+        store.saveScripts([edited])
+        try store.waitForPendingWrites().get()
+
+        let primary = directory.appendingPathComponent("scripts.json")
+        let backup = directory.appendingPathComponent("scripts.backup.json")
+        // A valid legacy file may have different indentation and key order.
+        let legacyEncoder = JSONEncoder()
+        legacyEncoder.outputFormatting = .prettyPrinted
+        let primaryBytes = try legacyEncoder.encode([edited])
+        try primaryBytes.write(to: primary, options: .atomic)
+        let backupBytes = try Data(contentsOf: backup)
+        let reopened = LocalStore(directoryURL: directory)
+        let savedScripts = try reopened.loadScripts()
+        reopened.saveScripts(savedScripts)
+        try reopened.waitForPendingWrites().get()
+
+        XCTAssertEqual(try Data(contentsOf: primary), primaryBytes)
+        XCTAssertEqual(try Data(contentsOf: backup), backupBytes)
+        XCTAssertEqual(try JSONDecoder().decode([Script].self, from: backupBytes).first?.content, original.content)
+
+        // Swift strings can compare equal while user-authored UTF-8 differs.
+        edited.content = "Corrected cue — Café"
+        reopened.saveScripts([edited])
+        try reopened.waitForPendingWrites().get()
+        XCTAssertEqual(try Data(contentsOf: backup), primaryBytes)
+        XCTAssertEqual(try reopened.loadScripts().first.map { Data($0.content.utf8) }, Data(edited.content.utf8))
+    }
+
     func testWriteFailureIsVisibleThenRetryPreservesOriginalAndBackup() async throws {
         let directory = try fixtureDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let store = LocalStore(directoryURL: directory)
         let original = Script(name: "Original — збережено", content: "Original words\n[Pause]")
-        store.saveScripts([original]); try store.waitForPendingWrites().get()
+        let prior = Script(name: "Previous draft", content: "Earlier version")
+        store.saveScripts([prior]); try store.waitForPendingWrites().get()
         store.saveScripts([original]); try store.waitForPendingWrites().get()
         let primary = directory.appendingPathComponent("scripts.json")
         let backup = directory.appendingPathComponent("scripts.backup.json")

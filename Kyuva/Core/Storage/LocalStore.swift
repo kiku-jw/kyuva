@@ -137,11 +137,17 @@ class LocalStore {
         let scriptsCopy = scripts // Capture copy for thread safety
         saveQueue.async {
             let result = Result<Void, Error> {
-                let data = try JSONEncoder().encode(scriptsCopy)
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = .sortedKeys
+                let data = try encoder.encode(scriptsCopy)
                 // Revalidate at write time too. A failed current read must
                 // never become permission to skip backup and replace the file.
                 let library = try self.readLibrary()
                 if let currentData = library.primaryData {
+                    // Compare persisted content even when a legacy file has different
+                    // formatting. An unchanged save must keep the previous version.
+                    if currentData == data { return }
+                    if try encoder.encode(library.scripts) == data { return }
                     try currentData.write(to: self.backupURL, options: .atomic)
                 }
 
