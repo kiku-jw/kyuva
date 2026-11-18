@@ -267,6 +267,9 @@ class OverlayWindowController: NSWindowController {
     }
 
     func hideOverlay() {
+        if isOverlayVisible {
+            scrollController?.manualPause()
+        }
         window?.orderOut(nil)
     }
 
