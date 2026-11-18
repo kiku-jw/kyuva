@@ -34,7 +34,8 @@ class OverlayWindowController: NSWindowController {
     private var cancellables = Set<AnyCancellable>()
     private var dragTracker = WindowDragTracker()
     
-    convenience init(interactive: Bool = true) {
+    // Require an explicit mode so callers do not accidentally use NSWindowController.init().
+    convenience init(interactive: Bool) {
         // Get screen with notch (main screen on MacBooks with notch)
         let screen = NSScreen.main ?? NSScreen.screens.first!
         let screenFrame = screen.frame

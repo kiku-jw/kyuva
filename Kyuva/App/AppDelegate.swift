@@ -108,7 +108,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
     
     private func setupOverlayWindow(isVisible: Bool) {
-        overlayWindowController = OverlayWindowController()
+        overlayWindowController = OverlayWindowController(interactive: true)
         if isVisible {
             overlayWindowController?.showOverlay()
         } else {
