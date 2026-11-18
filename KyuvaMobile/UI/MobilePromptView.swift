@@ -12,6 +12,7 @@ private struct PromptContentHeightKey: PreferenceKey {
 struct MobilePromptView: View {
     let script: Script
 
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -139,6 +140,11 @@ struct MobilePromptView: View {
         .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
             scrollController.applyPersistedScrollSpeed()
             updateContentMetrics()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase != .active && !scrollController.isPaused {
+                scrollController.manualPause()
+            }
         }
         .onChange(of: scrollController.isPaused) { _, isPaused in
             if speechRecognizer.state.isEngaged && !isPaused {
