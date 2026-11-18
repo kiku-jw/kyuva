@@ -641,6 +641,11 @@ struct OverlayContentView: View {
             speechRecognizer.stop()
             voiceMatcher = nil
         }
+        .onChange(of: scriptManager.selectedScriptId) { _ in
+            resetPromptPosition()
+            speechRecognizer.stop()
+            voiceMatcher = nil
+        }
         .onChange(of: scriptManager.selectedScript?.content) { _ in
             hasRecordedCurrentCompletion = false
             scrollController.updateWordCount(pacedWordCount)
