@@ -352,6 +352,14 @@ class OverlayWindow: NSWindow {
     }
 }
 
+private struct PromptRowFrames: PreferenceKey {
+    static var defaultValue: [Int: CGRect] { [:] }
+
+    static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, latest in latest })
+    }
+}
+
 /// SwiftUI content for the overlay
 struct OverlayContentView: View {
     @Environment(\.requestReview) private var requestReview
@@ -383,6 +391,7 @@ struct OverlayContentView: View {
     @AppStorage("stageDirectionStyle") private var stageDirectionStyle = 1
     
     @State private var showControls = false
+    @State private var promptRowFrames: [Int: CGRect] = [:]
     @State private var voiceMatcher: VoicePositionMatcher?
     @State private var hasRecordedCurrentCompletion = false
 
@@ -507,6 +516,14 @@ struct OverlayContentView: View {
                                                     lineWidth: 2
                                                 )
                                         )
+                                        .background {
+                                            GeometryReader { row in
+                                                Color.clear.preference(
+                                                    key: PromptRowFrames.self,
+                                                    value: [promptLine.sourceIndex: row.frame(in: .named("promptRows"))]
+                                                )
+                                            }
+                                        }
                                         .contentShape(Rectangle())
                                         .onTapGesture {
                                             scrollController.jumpToLine(
@@ -518,6 +535,8 @@ struct OverlayContentView: View {
                                         }
                                 }
                             }
+                            .coordinateSpace(name: "promptRows")
+                            .onPreferenceChange(PromptRowFrames.self) { promptRowFrames = $0 }
                             .padding(.horizontal, 16)
 
                             Color.clear
@@ -900,14 +919,21 @@ struct OverlayContentView: View {
     }
 
     private func consumeVoiceTranscript(_ transcript: String) {
-        guard var matcher = voiceMatcher else { return }
+        guard var matcher = voiceMatcher, !promptRowFrames.isEmpty else { return }
         defer { voiceMatcher = matcher }
 
-        guard let match = matcher.consume(transcript) else { return }
+        guard let match = matcher.consume(transcript),
+              let row = promptRowFrames[match.lineIndex] else { return }
+
+        // Progress within the rendered paragraph keeps long wrapped text moving
+        // without letting hidden directions or uneven row heights shift the cue.
+        let lineStart = matcher.tokens.firstIndex { $0.lineIndex == match.lineIndex } ?? match.tokenIndex
+        let lineEnd = matcher.tokens.lastIndex { $0.lineIndex == match.lineIndex } ?? match.tokenIndex
+        let progress = CGFloat(match.tokenIndex - lineStart) / CGFloat(max(1, lineEnd - lineStart))
+        let travel = max(0, row.height - lineHeight)
+
         scrollController.pause()
-        scrollController.goToOffset(
-            CGFloat(match.progress) * scrollController.maximumOffset
-        )
+        scrollController.goToOffset(row.minY + progress * travel)
     }
 
     private func voiceStartTokenIndex(for script: Script) -> Int {
