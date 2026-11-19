@@ -145,6 +145,10 @@ struct MobilePromptView: View {
             if phase != .active && !scrollController.isPaused {
                 scrollController.manualPause()
             }
+            if phase == .background && speechRecognizer.state.isEngaged {
+                speechRecognizer.stop()
+                voiceMatcher = nil
+            }
         }
         .onChange(of: scrollController.isPaused) { _, isPaused in
             if speechRecognizer.state.isEngaged && !isPaused {
