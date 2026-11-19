@@ -118,11 +118,10 @@ struct MobileEditorView: View {
         ) { result in
             guard !runtime.isQA, scriptManager.loadError == nil else { return }
             do {
-                let imported = try ScriptTextTransfer.readImport(from: result.get())
-                let script = scriptManager.importScript(
-                    name: imported.name,
-                    content: imported.content
-                )
+                guard let url = try result.get().first else {
+                    throw ScriptTextImportError.noFile
+                }
+                let script = try scriptManager.importScript(from: url)
                 path = [script.id]
             } catch {
                 importError = error.localizedDescription

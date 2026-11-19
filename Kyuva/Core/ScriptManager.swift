@@ -216,6 +216,12 @@ class ScriptManager: ObservableObject {
         return script
     }
 
+    @discardableResult
+    func importScript(from url: URL) throws -> Script {
+        let content = try ScriptTextFile.readImport(from: url)
+        return importScript(name: url.deletingPathExtension().lastPathComponent, content: content)
+    }
+
 #if os(macOS)
     func importScript() {
         let panel = NSOpenPanel()
@@ -224,9 +230,7 @@ class ScriptManager: ObservableObject {
         
         if panel.runModal() == .OK, let url = panel.url {
             do {
-                let content = try String(contentsOf: url, encoding: .utf8)
-                let name = url.deletingPathExtension().lastPathComponent
-                importScript(name: name, content: content)
+                try importScript(from: url)
             } catch {
                 NSApp.presentError(error)
             }

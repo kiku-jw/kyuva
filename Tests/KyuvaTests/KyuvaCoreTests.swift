@@ -505,8 +505,8 @@ final class ScriptDeliveryScenarioTests: XCTestCase {
         try bytes.write(to: input)
         let store = LocalStore(directoryURL: directory.appendingPathComponent("library"))
         let manager = ScriptManager(storage: store)
-        let imported = manager.importScript(name: input.deletingPathExtension().lastPathComponent,
-            content: try ScriptTextFile.decodeImport(Data(contentsOf: input)))
+        let imported = try manager.importScript(from: input)
+        XCTAssertEqual(imported.name, "Виступ — 東京")
         let editedTitle = "Final — Виступ / 東京"
         let editedText = imported.content + "\nمرحبا — Closing words."
         manager.updateScriptName(imported.id, name: editedTitle)
@@ -526,6 +526,37 @@ final class ScriptDeliveryScenarioTests: XCTestCase {
         XCTAssertEqual(restored.name, editedTitle)
         XCTAssertEqual(Data(restored.content.utf8), Data(editedText.utf8))
         XCTAssertEqual(restored.promptLines.filter(\.isStageDirection).map(\.text), ["[Пауза]", "(Pause)"])
+        XCTAssertEqual(try Data(contentsOf: input), bytes)
+    }
+
+    func testOversizedFileDoesNotChangeTheOpenOrReopenedLibrary() throws {
+        let directory = try fixtureDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let library = directory.appendingPathComponent("library")
+        let input = directory.appendingPathComponent("Camera rehearsal.txt")
+        let bytes = Data(repeating: 0x61, count: ScriptTextFile.maximumBytes + 1)
+        try bytes.write(to: input)
+
+        let manager = ScriptManager(storage: LocalStore(directoryURL: library))
+        let retained = manager.importScript(name: "Warehouse briefing", content: "Вітаю.\n[Пауза]\nПеревірте двері.")
+        try manager.flushPendingSave().get()
+        let primary = library.appendingPathComponent("scripts.json")
+        let backup = library.appendingPathComponent("scripts.backup.json")
+        let priorPrimary = try Data(contentsOf: primary)
+        let priorBackup = try Data(contentsOf: backup)
+
+        XCTAssertThrowsError(try manager.importScript(from: input)) { error in
+            guard case ScriptTextImportError.fileTooLarge = error else {
+                return XCTFail("Expected fileTooLarge, got \(error)")
+            }
+        }
+        XCTAssertEqual(manager.selectedScriptId, retained.id)
+        try manager.flushPendingSave().get()
+        let reopened = ScriptManager(storage: LocalStore(directoryURL: library))
+        XCTAssertEqual(reopened.scripts.last?.id, retained.id)
+        XCTAssertTrue(reopened.scripts.last?.content == retained.content)
+        XCTAssertEqual(try Data(contentsOf: primary), priorPrimary)
+        XCTAssertEqual(try Data(contentsOf: backup), priorBackup)
         XCTAssertEqual(try Data(contentsOf: input), bytes)
     }
 

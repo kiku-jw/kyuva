@@ -51,6 +51,25 @@ enum ScriptTextFile {
         return "\(baseName).txt"
     }
 
+    static func readImport(from url: URL) throws -> String {
+        let isAccessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if isAccessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        if let size = try url.resourceValues(forKeys: [.fileSizeKey]).fileSize,
+           size > maximumBytes {
+            throw ScriptTextImportError.fileTooLarge
+        }
+
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        let data = try handle.read(upToCount: maximumBytes + 1) ?? Data()
+        return try decodeImport(data)
+    }
+
     static func decodeImport(_ data: Data) throws -> String {
         guard data.count <= maximumBytes else {
             throw ScriptTextImportError.fileTooLarge
