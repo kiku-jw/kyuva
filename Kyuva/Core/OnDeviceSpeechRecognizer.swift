@@ -202,11 +202,13 @@ final class OnDeviceSpeechRecognizer: ObservableObject {
             latestTranscript = ""
             state = .listening(localeIdentifier: speechRecognizer.locale.identifier)
 
-            recognitionTask = speechRecognizer.recognitionTask(with: request) { [weak self] result, error in
-                Task { @MainActor [weak self] in
-                    guard let self,
+            recognitionTask = speechRecognizer.recognitionTask(with: request) { [weak self, weak request] result, error in
+                Task { @MainActor [weak self, weak request] in
+                    // Automatic restarts reuse the listening generation.
+                    guard let self, let request,
                           self.shouldListen,
-                          self.generation == expectedGeneration else { return }
+                          self.generation == expectedGeneration,
+                          self.recognitionRequest === request else { return }
 
                     if let result {
                         self.latestTranscript = result.bestTranscription.formattedString
